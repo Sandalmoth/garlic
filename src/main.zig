@@ -32,6 +32,41 @@ pub const CL201 = struct {
         }
     }; // ax + by + c = 0
 
+    pub const Motor = struct {
+        s: f32,
+        e01: f32,
+        e20: f32,
+        e12: f32,
+    };
+
+    pub fn normalize(a: anytype) @TypeOf(a) {
+        const T = @TypeOf(a);
+        if (T == Point) {
+            const inorm = 1.0 / a.e12;
+            return Point{
+                .e20 = a.e20 * inorm,
+                .e01 = a.e01 * inorm,
+                .e12 = a.e12 * inorm,
+            };
+        } else if (T == Line) {
+            const inorm = 1.0 / @sqrt(a.e1 * a.e1 + a.e2 * a.e2);
+            return Line{
+                .e1 = a.e1 * inorm,
+                .e2 = a.e2 * inorm,
+                .e0 = a.e0 * inorm,
+            };
+        } else if (T == Motor) {
+            const inorm = 1.0 / @sqrt(2 * a.s * a.s + a.e12 * a.e12);
+            return Motor{
+                .s = a.e01 * inorm,
+                .e01 = a.e01 * inorm,
+                .e20 = a.e20 * inorm,
+                .e12 = a.e12 * inorm,
+            };
+        }
+        @compileError("normalize not supported for type " ++ @typeName(T));
+    }
+
     // neat construction i learned from zmath
     fn dualReturnType(comptime T: type) type {
         if (T == Point) {
@@ -71,6 +106,23 @@ pub const CL201 = struct {
     pub fn join(a: Point, b: Point) Line {
         return dual(meet(dual(a), dual(b)));
     }
+
+    // fn mulReturnType(comptime Ta: type, comptime Tb: type) type {
+    //     if (Ta == Line and Tb == Line) {
+    //         return Line;
+    //     }
+    //     @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
+    // }
+    // pub fn mul(a: anytype, b: anytype) mulReturnType(@TypeOf(a), @TypeOf(b)) {
+    //     const Ta = @TypeOf(a);
+    //     const Tb = @TypeOf(b);
+    //     if (Ta == Line and Tb == Line) {}
+    //     @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
+    // }
+
+    // TODO think about how to unify interface
+    // reflect point b across line a using sandwich product
+    // pub fn swch_lp(a: Line, b: Point) Point {}
 };
 
 test "basic functionality" {
