@@ -125,6 +125,73 @@ pub const CL201 = struct {
     // pub fn swch_lp(a: Line, b: Point) Point {}
 };
 
+pub const CL201MV = struct {
+    pub const MV = struct {
+        s: f32 = 0,
+        e0: f32 = 0,
+        e1: f32 = 0,
+        e2: f32 = 0,
+        e01: f32 = 0,
+        e20: f32 = 0,
+        e12: f32 = 0,
+        e012: f32 = 0,
+
+        pub fn fromCart(x: f32, y: f32) MV {
+            return MV{ .e20 = x, .e01 = y, .e12 = 1 };
+        }
+    };
+
+    pub fn dual(mv: MV) MV {
+        return MV{
+            .s = mv.e012,
+            .e0 = mv.e12,
+            .e1 = mv.e20,
+            .e2 = mv.e01,
+            .e01 = mv.e2,
+            .e20 = mv.e1,
+            .e12 = mv.e0,
+            .e012 = mv.s,
+        };
+    }
+
+    pub fn rev(mv: MV) MV {
+        var mv2 = mv;
+        mv2.e01 = -mv2.e01;
+        mv2.e20 = -mv2.e20;
+        mv2.e12 = -mv2.e12;
+        mv2.e012 = -mv2.e012;
+        return mv2;
+    }
+
+    pub fn conj(mv: MV) MV {
+        var mv2 = mv;
+        mv2.e0 = -mv.e0;
+        mv2.e1 = -mv.e1;
+        mv2.e2 = -mv.e2;
+        mv2.e01 = -mv2.e01;
+        mv2.e20 = -mv2.e20;
+        mv2.e12 = -mv2.e12;
+        return mv2;
+    }
+
+    pub fn mul(a: MV, b: MV) MV {
+        return MV{
+            .s = a.s * b.s + a.e1 * b.e1 + a.e2 * b.e2 - a.e12 * b.e12,
+            .e0 = b.e0 * a.s + b.s * a.e0 - b.e01 * a.e1 + b.e20 * a.e2 +
+                b.e1 * a.e01 - b.e2 * a.e20 - b.e012 * a.e12 - b.e12 * a.e012,
+            .e1 = b.e1 * a.s + b.s * a.e1 - b.e12 * a.e2 + b.e2 * a.e12,
+            .e2 = b.e2 * a.s + b.e12 * a.e1 + b.s * a.e2 - b.e1 * a.e12,
+            .e01 = b.e01 * a.s + b.e1 * a.e0 - b.e0 * a.e1 + b.e012 * a.e2 +
+                b.s * a.e01 + b.e12 * a.e20 - b.e20 * a.e12 + b.e2 * a.e012,
+            .e20 = b.e20 * a.s - b.e2 * a.e0 + b.e012 * a.e1 + b.e0 * a.e2 -
+                b.e12 * a.e01 + b.s * a.e20 + b.e01 * a.e12 + b.e1 * a.e012,
+            .e12 = b.e12 * a.s + b.e2 * a.e1 - b.e1 * a.e2 + b.s * a.e12,
+            .e012 = b.e012 * a.s + b.e12 * a.e0 + b.e20 * a.e1 + b.e01 * a.e2 +
+                b.e2 * a.e01 + b.e1 * a.e20 + b.e0 * a.e12 + b.s * a.e012,
+        };
+    }
+};
+
 test "basic functionality" {
     std.debug.print("\n", .{});
     const ga = CL201;
