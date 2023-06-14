@@ -138,7 +138,11 @@ pub const CL201MV = struct {
 
         pub fn fromCart(x: f32, y: f32) MV {
             return MV{ .e20 = x, .e01 = y, .e12 = 1 };
-        }
+        } // cartesian x/y coordinates
+
+        pub fn fromEq(a: f32, b: f32, c: f32) MV {
+            return MV{ .e1 = a, .e2 = b, .e0 = c };
+        } // line equation ax + by + c = 0
     };
 
     pub fn dual(mv: MV) MV {
@@ -174,6 +178,12 @@ pub const CL201MV = struct {
         return mv2;
     }
 
+    pub fn normalize(mv: MV) MV {
+        const n = 1.0 / @sqrt(@fabs(mul(mv, conj(mv)).s));
+        return smul(n, mv);
+    }
+
+    /// geometric product
     pub fn mul(a: MV, b: MV) MV {
         return MV{
             .s = a.s * b.s + a.e1 * b.e1 + a.e2 * b.e2 - a.e12 * b.e12,
@@ -190,37 +200,124 @@ pub const CL201MV = struct {
                 b.e2 * a.e01 + b.e1 * a.e20 + b.e0 * a.e12 + b.s * a.e012,
         };
     }
+
+    /// outer product
+    pub fn meet(a: MV, b: MV) MV {
+        return MV{
+            .s = b.s * a.s,
+            .e0 = b.e0 * a.s + b.s * a.e0,
+            .e1 = b.e1 * a.s + b.s * a.e1,
+            .e2 = b.e2 * a.s + b.s * a.e2,
+            .e01 = b.e01 * a.s + b.e1 * a.e0 - b.e0 * a.e1 + b.s * a.e01,
+            .e20 = b.e20 * a.s - b.e2 * a.e0 + b.e0 * a.e2 + b.s * a.e20,
+            .e12 = b.e12 * a.s + b.e2 * a.e1 - b.e1 * a.e2 + b.s * a.e12,
+            .e012 = b.e012 * a.s + b.e12 * a.e0 + b.e20 * a.e1 + b.e01 * a.e2 +
+                b.e2 * a.e01 + b.e1 * a.e20 + b.e0 * a.e12 + b.s * a.e012,
+        };
+    }
+
+    /// regressive product
+    pub fn join(a: MV, b: MV) MV {
+        // the reverse order of a/b results in a changed minus sign for the result
+        // i don't know if it matters though...
+        // return dual(meet(dual(b), dual(a)));
+
+        // this straight up implementation is probably faster anyway
+        return MV{
+            .s = a.s * b.e012 + a.e0 * b.e12 + a.e1 * b.e20 + a.e2 * b.e01 +
+                a.e01 * b.e2 + a.e20 * b.e1 + a.e12 * b.e0 + a.e012 * b.s,
+            .e0 = a.e0 * b.e012 + a.e01 * b.e20 - a.e20 * b.e01 + a.e012 * b.e0,
+            .e1 = a.e1 * b.e012 - a.e01 * b.e12 + a.e12 * b.e01 + a.e012 * b.e1,
+            .e2 = a.e2 * b.e012 + a.e20 * b.e12 - a.e12 * b.e20 + a.e012 * b.e2,
+            .e01 = a.e01 * b.e012 + a.e012 * b.e01,
+            .e20 = a.e20 * b.e012 + a.e012 * b.e20,
+            .e12 = a.e12 * b.e012 + a.e012 * b.e12,
+            .e012 = a.e012 * b.e012,
+        };
+    }
+
+    /// inner product
+    pub fn dot(a: MV, b: MV) MV {
+        return MV{
+            .s = b.s * a.s + b.e1 * a.e1 + b.e2 * a.e2 - b.e12 * a.e12,
+            .e0 = b.e0 * a.s + b.s * a.e0 - b.e01 * a.e1 + b.e20 * a.e2 +
+                b.e1 * a.e01 - b.e2 * a.e20 - b.e012 * a.e12 - b.e12 * a.e012,
+            .e1 = b.e1 * a.s + b.s * a.e1 - b.e12 * a.e2 + b.e2 * a.e12,
+            .e2 = b.e2 * a.s + b.e12 * a.e1 + b.s * a.e2 - b.e1 * a.e12,
+            .e01 = b.e01 * a.s + b.e012 * a.e2 + b.s * a.e01 + b.e2 * a.e012,
+            .e20 = b.e20 * a.s + b.e012 * a.e1 + b.s * a.e20 + b.e1 * a.e012,
+            .e12 = b.e12 * a.s + b.s * a.e12,
+            .e012 = b.e012 * a.s + b.s * a.e012,
+        };
+    }
+
+    pub fn smul(s: f32, mv: MV) MV {
+        return MV{
+            .s = s * mv.s,
+            .e0 = s * mv.e0,
+            .e1 = s * mv.e1,
+            .e2 = s * mv.e2,
+            .e01 = s * mv.e01,
+            .e20 = s * mv.e20,
+            .e12 = s * mv.e12,
+            .e012 = s * mv.e012,
+        };
+    }
 };
 
 test "basic functionality" {
     std.debug.print("\n", .{});
-    const ga = CL201;
+    const ga = CL201MV;
 
-    const p = ga.Point.fromCartesian(2, 3);
-    std.debug.print("{}\n", .{p});
-    std.debug.print("{}\n", .{ga.dual(p)});
-    std.debug.print("{}\n", .{ga.dual(ga.dual(p))});
+    // const p = ga.MV.fromCart(2, 3);
+    // std.debug.print("{}\n", .{p});
+    // std.debug.print("{}\n", .{ga.dual(p)});
+    // std.debug.print("{}\n", .{ga.dual(ga.dual(p))});
 
-    std.debug.print("{}\n", .{ga.meet(
-        ga.Line.equation(1, 1, 0),
-        ga.Line.equation(-1, 1, 0),
-    )});
-    std.debug.print("{}\n", .{ga.meet(
-        ga.Line.equation(-1, 1, 0),
-        ga.Line.equation(1, 1, 0),
-    )});
-    std.debug.print("{}\n", .{ga.meet(
-        ga.Line.equation(-1, -1, 2),
-        ga.Line.equation(1, -1, 0),
-    )});
-    std.debug.print("{}\n", .{ga.meet(
-        ga.Line.equation(-1, -1, 2),
-        ga.Line.equation(1, -1, 0),
+    // std.debug.print("{}\n", .{ga.meet(
+    //     ga.MV.fromEq(1, 1, 0),
+    //     ga.MV.fromEq(-1, 1, 0),
+    // )});
+    // std.debug.print("{}\n", .{ga.meet(
+    //     ga.MV.fromEq(-1, 1, 0),
+    //     ga.MV.fromEq(1, 1, 0),
+    // )});
+    // std.debug.print("{}\n", .{ga.meet(
+    //     ga.MV.fromEq(-1, -1, 2),
+    //     ga.MV.fromEq(1, -1, 0),
+    // )});
+    // std.debug.print("{}\n", .{ga.meet(
+    //     ga.MV.fromEq(-1, -1, 2),
+    //     ga.MV.fromEq(1, -1, 0),
+    // )});
+    std.debug.print("{}\n", .{ga.MV.fromCart(-1, -1)});
+    std.debug.print("{}\n", .{ga.MV.fromCart(1, 1)});
+    std.debug.print("{}\n", .{ga.mul(
+        ga.MV.fromCart(-1, -1),
+        ga.MV.fromCart(1, 1),
     )});
     std.debug.print("{}\n", .{ga.join(
-        ga.Point.fromCartesian(-1, -1),
-        ga.Point.fromCartesian(1, 1),
+        ga.MV.fromCart(-1, -1),
+        ga.MV.fromCart(1, 1),
     )});
+    std.debug.print("{}\n", .{ga.meet(
+        ga.MV.fromEq(-1, -1, 2),
+        ga.MV.fromEq(1, -1, 0),
+    )});
+    std.debug.print("{}\n", .{ga.normalize(ga.mul(
+        ga.dot(
+            ga.MV.fromEq(1, -1, 0),
+            ga.MV.fromCart(2, 0),
+        ),
+        ga.MV.fromEq(1, -1, 0),
+    ))}); // projection of point onto line
+    std.debug.print("{}\n", .{ga.normalize(ga.mul(
+        ga.mul(
+            ga.MV.fromEq(1, -1, 0),
+            ga.MV.fromCart(2, 0),
+        ),
+        ga.MV.fromEq(1, -1, 0),
+    ))}); // reflection of point across line
 
     try std.testing.expect(true);
 }
