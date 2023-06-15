@@ -7,13 +7,13 @@ pub const CL201 = struct {
         e01: f32, // y
         e12: f32, // homogenous coords, 1 = points, 0 = direction
 
-        pub fn fromCartesian(x: f32, y: f32) Point {
+        pub fn fromCart(x: f32, y: f32) Point {
             return Point{ .e20 = x, .e01 = y, .e12 = 1.0 };
         }
 
         /// performs perspective division (?)
         /// such that we can read out cartesian x/y
-        pub fn toCartesian(p: *Point) void {
+        pub fn toCart(p: *Point) void {
             if (p.e12 != 0) {
                 p.e20 /= p.e12;
                 p.e01 /= p.e12;
@@ -104,7 +104,7 @@ pub const CL201 = struct {
     }
 
     pub fn join(a: Point, b: Point) Line {
-        return dual(meet(dual(a), dual(b)));
+        return dual(meet(dual(b), dual(a)));
     }
 
     // fn mulReturnType(comptime Ta: type, comptime Tb: type) type {
@@ -267,7 +267,8 @@ pub const CL201MV = struct {
 
 test "basic functionality" {
     std.debug.print("\n", .{});
-    const ga = CL201MV;
+    const ga = CL201;
+    const ga_mv = CL201MV;
 
     // const p = ga.MV.fromCart(2, 3);
     // std.debug.print("{}\n", .{p});
@@ -290,33 +291,39 @@ test "basic functionality" {
     //     ga.MV.fromEq(-1, -1, 2),
     //     ga.MV.fromEq(1, -1, 0),
     // )});
-    std.debug.print("{}\n", .{ga.MV.fromCart(-1, -1)});
-    std.debug.print("{}\n", .{ga.MV.fromCart(1, 1)});
-    std.debug.print("{}\n", .{ga.mul(
-        ga.MV.fromCart(-1, -1),
-        ga.MV.fromCart(1, 1),
+    std.debug.print("{}\n", .{ga_mv.MV.fromCart(-1, -1)});
+    std.debug.print("{}\n", .{ga.Point.fromCart(-1, -1)});
+    std.debug.print("{}\n", .{ga_mv.MV.fromCart(1, 1)});
+    std.debug.print("{}\n", .{ga.Point.fromCart(-1, -1)});
+    std.debug.print("{}\n", .{ga_mv.mul(
+        ga_mv.MV.fromCart(-1, -1),
+        ga_mv.MV.fromCart(1, 1),
+    )});
+    std.debug.print("{}\n", .{ga_mv.join(
+        ga_mv.MV.fromCart(-1, -1),
+        ga_mv.MV.fromCart(1, 1),
     )});
     std.debug.print("{}\n", .{ga.join(
-        ga.MV.fromCart(-1, -1),
-        ga.MV.fromCart(1, 1),
+        ga.Point.fromCart(-1, -1),
+        ga.Point.fromCart(1, 1),
     )});
-    std.debug.print("{}\n", .{ga.meet(
-        ga.MV.fromEq(-1, -1, 2),
-        ga.MV.fromEq(1, -1, 0),
+    std.debug.print("{}\n", .{ga_mv.meet(
+        ga_mv.MV.fromEq(-1, -1, 2),
+        ga_mv.MV.fromEq(1, -1, 0),
     )});
-    std.debug.print("{}\n", .{ga.normalize(ga.mul(
-        ga.dot(
-            ga.MV.fromEq(1, -1, 0),
-            ga.MV.fromCart(2, 0),
+    std.debug.print("{}\n", .{ga_mv.normalize(ga_mv.mul(
+        ga_mv.dot(
+            ga_mv.MV.fromEq(1, -1, 0),
+            ga_mv.MV.fromCart(2, 0),
         ),
-        ga.MV.fromEq(1, -1, 0),
+        ga_mv.MV.fromEq(1, -1, 0),
     ))}); // projection of point onto line
-    std.debug.print("{}\n", .{ga.normalize(ga.mul(
-        ga.mul(
-            ga.MV.fromEq(1, -1, 0),
-            ga.MV.fromCart(2, 0),
+    std.debug.print("{}\n", .{ga_mv.normalize(ga_mv.mul(
+        ga_mv.mul(
+            ga_mv.MV.fromEq(1, -1, 0),
+            ga_mv.MV.fromCart(2, 0),
         ),
-        ga.MV.fromEq(1, -1, 0),
+        ga_mv.MV.fromEq(1, -1, 0),
     ))}); // reflection of point across line
 
     try std.testing.expect(true);
