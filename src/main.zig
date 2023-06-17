@@ -1,6 +1,13 @@
 const std = @import("std");
 const testing = std.testing;
 
+// notes
+// motor * point * rev(motor)
+// (a + be01 + ce20 + de12)(xe20 + ye01 + ze12)
+// = (ax + dy - bz)e20 + (ay + cz - dx)e01 - dz + aze12
+// [(ax + dy - bz)e20 + (ay + cz - dx)e01 - dz + aze12](a - be01 - ce20 - de12)
+// = (a2x + 2ady - abz + 2cdz - d2x - acz)e20 + (a2y + acz - 2adx + 2bdz - d2y + abz)e01 + (az + d2z)e12
+
 pub const CL201 = struct {
     pub const Point = struct {
         e20: f32, // x
@@ -22,15 +29,46 @@ pub const CL201 = struct {
         }
     };
 
+    pub const Direction = struct {
+        e20: f32, // x
+        e01: f32, // y
+        // e12: f32 = 0, homogenous coords, 1 = points, 0 = direction
+
+        pub fn fromRad(d: f32) Direction {
+            return Direction{ .e20 = @cos(d), .e01 = @sin(d) };
+        }
+    };
+
     pub const Line = struct {
         e1: f32, // a
         e2: f32, // b
         e0: f32, // c
 
-        pub fn equation(a: f32, b: f32, c: f32) Line {
+        /// line defined as ax + by + c = 0
+        pub fn fromEq(a: f32, b: f32, c: f32) Line {
             return Line{ .e1 = a, .e2 = b, .e0 = c };
         }
-    }; // ax + by + c = 0
+    };
+
+    pub const Translator = struct {
+        s: f32,
+        e01: f32,
+        e20: f32,
+
+        pub fn fromCart(dx: f32, dy: f32) Translator {
+            // FIXME what's the actual calculation?
+            return Translator{ .s = 1.0, .e20 = -2 * dx, .e01 = dy };
+        }
+    };
+
+    pub const Rotor = struct {
+        s: f32,
+        e12: f32,
+
+        pub fn fromRad(d: f32) Rotor {
+            return Rotor{ .s = @cos(0.5 * d), .e12 = @sin(0.5 * d) };
+        }
+    };
 
     pub const Motor = struct {
         s: f32,
@@ -39,13 +77,22 @@ pub const CL201 = struct {
         e12: f32,
     };
 
-    pub fn normalize(a: anytype) @TypeOf(a) {
+    // pub const Flector = struct {} ???
+
+    /// return a normalized copy
+    pub fn normalized(a: anytype) @TypeOf(a) {
         const T = @TypeOf(a);
         if (T == Point) {
-            const inorm = 1.0 / a.e12;
+            const inorm = 1.0 / a.e12; // we could take the absolute, but why waste the time?
             return Point{
                 .e20 = a.e20 * inorm,
                 .e01 = a.e01 * inorm,
+                .e12 = a.e12 * inorm,
+            };
+        } else if (T == Direction) {
+            const inorm = 1.0 / @sqrt(a.e20 * a.e20 + a.e12 * a.e12);
+            return Direction{
+                .e20 = a.e20 * inorm,
                 .e12 = a.e12 * inorm,
             };
         } else if (T == Line) {
@@ -56,6 +103,7 @@ pub const CL201 = struct {
                 .e0 = a.e0 * inorm,
             };
         } else if (T == Motor) {
+            // Is this correct
             const inorm = 1.0 / @sqrt(2 * a.s * a.s + a.e12 * a.e12);
             return Motor{
                 .s = a.e01 * inorm,
@@ -64,7 +112,8 @@ pub const CL201 = struct {
                 .e12 = a.e12 * inorm,
             };
         }
-        @compileError("normalize not supported for type " ++ @typeName(T));
+        // TODO add normalization for Translator and Rotor
+        @compileError("normalized not supported for type " ++ @typeName(T));
     }
 
     // neat construction i learned from zmath
@@ -105,6 +154,57 @@ pub const CL201 = struct {
 
     pub fn join(a: Point, b: Point) Line {
         return dual(meet(dual(b), dual(a)));
+    }
+
+    /// sandwidth multiplication of a*b*reverse(a)
+    pub fn apply(a: anytype, b: anytype) @TypeOf(b) {
+        const Ta = @TypeOf(a);
+        const Tb = @TypeOf(b);
+        if (Ta == Motor and Tb == Point) {
+            // motor * point * rev(motor)
+            // (s + ue01 + ve20 + we12)(xe20 + ye01 + ze12)
+            // = (sx + wy - uz)e20 + (sy + vz - wx)e01 - wz + sze12
+            // [(sx + wy - uz)e20 + (sy + vz - wx)e01 - wz + sze12](s - ue01 - ve20 - we12)
+            // = (s2x + 2swy - suz + 2vwz - w2x - svz)e20 + (s2y + svz - 2swx + 2uwz - w2y + suz)e01 + (sz + w2z)e12
+            // = (s(sx - uz - vz) + w(2sy + 2vz - wx))e20 + (s(sy + vz + uz) + w(2uz - 2sx - wy)e01 + z(s + w2)e12
+            const s = a.s;
+            const u = a.e01;
+            const v = a.e20;
+            const w = a.e12;
+            const x = b.e01;
+            const y = b.e20;
+            const z = b.e12;
+            return Point{
+                .e20 = s * (s * x - u * z - v * z) + w * (2 * s * y + 2 * v * z - w * x),
+                .e01 = s * (s * y + v * z + u * z) + w * (2 * u * z - 2 * s * x - w * y),
+                .e12 = z * (s + w * w),
+            };
+        } else if (Ta == Translator and Tb == Point) {
+            const s = a.s;
+            const u = a.e01;
+            const v = a.e20;
+            const x = b.e01;
+            const y = b.e20;
+            const z = b.e12;
+            return Point{
+                .e20 = s * (s * x - u * z - v * z),
+                .e01 = s * (s * y + v * z + u * z),
+                .e12 = z * s,
+            };
+        } else if (Ta == Rotor and Tb == Point) {
+            const s = a.s;
+            const w = a.e12;
+            const x = b.e01;
+            const y = b.e20;
+            const z = b.e12;
+            return Point{
+                .e20 = s * s * x + w * (2 * s * y - w * x),
+                .e01 = s * s * y + w * (2 * s * x - w * y),
+                .e12 = z * (s + w * w),
+            };
+        }
+
+        @compileError("apply (sandwich) not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
     }
 
     // fn mulReturnType(comptime Ta: type, comptime Tb: type) type {
@@ -295,10 +395,6 @@ test "basic functionality" {
     std.debug.print("{}\n", .{ga.Point.fromCart(-1, -1)});
     std.debug.print("{}\n", .{ga_mv.MV.fromCart(1, 1)});
     std.debug.print("{}\n", .{ga.Point.fromCart(-1, -1)});
-    std.debug.print("{}\n", .{ga_mv.mul(
-        ga_mv.MV.fromCart(-1, -1),
-        ga_mv.MV.fromCart(1, 1),
-    )});
     std.debug.print("{}\n", .{ga_mv.join(
         ga_mv.MV.fromCart(-1, -1),
         ga_mv.MV.fromCart(1, 1),
@@ -307,24 +403,62 @@ test "basic functionality" {
         ga.Point.fromCart(-1, -1),
         ga.Point.fromCart(1, 1),
     )});
+    std.debug.print("{}\n", .{ga_mv.MV.fromCart(-1, -1)});
+    std.debug.print("{}\n", .{ga.normalized(ga.Point.fromCart(-1, -1))});
     std.debug.print("{}\n", .{ga_mv.meet(
         ga_mv.MV.fromEq(-1, -1, 2),
         ga_mv.MV.fromEq(1, -1, 0),
     )});
-    std.debug.print("{}\n", .{ga_mv.normalize(ga_mv.mul(
-        ga_mv.dot(
-            ga_mv.MV.fromEq(1, -1, 0),
-            ga_mv.MV.fromCart(2, 0),
-        ),
-        ga_mv.MV.fromEq(1, -1, 0),
-    ))}); // projection of point onto line
-    std.debug.print("{}\n", .{ga_mv.normalize(ga_mv.mul(
-        ga_mv.mul(
-            ga_mv.MV.fromEq(1, -1, 0),
-            ga_mv.MV.fromCart(2, 0),
-        ),
-        ga_mv.MV.fromEq(1, -1, 0),
-    ))}); // reflection of point across line
+    std.debug.print("{}\n", .{ga.meet(
+        ga.Line.fromEq(-1, -1, 2),
+        ga.Line.fromEq(1, -1, 0),
+    )});
+
+    std.debug.print("{}\n", .{ga.apply(
+        ga.Motor{ .s = 1, .e01 = 1, .e20 = 1, .e12 = 1 },
+        ga.Point.fromCart(1, 1),
+    )});
+
+    std.debug.print("{}\n", .{
+        ga.Rotor.fromRad(0.5 * std.math.pi),
+    });
+    std.debug.print("{}\n", .{ga.apply(
+        ga.Rotor.fromRad(0.5 * std.math.pi),
+        ga.Point.fromCart(1, 1),
+    )});
+
+    std.debug.print("{}\n", .{
+        ga.Rotor.fromRad(std.math.pi),
+    });
+    std.debug.print("{}\n", .{ga.apply(
+        ga.Rotor.fromRad(std.math.pi),
+        ga.Point.fromCart(1, 1),
+    )});
+
+    std.debug.print("{}\n", .{ga.apply(
+        ga.Translator.fromCart(1, 1),
+        ga.Point.fromCart(1, 1),
+    )});
+
+    // var mv = ga_mv.MV{ .e01 = 1, .e20 = 1 }; // a direction
+    // std.debug.print("{}\n", .{mv});
+    // mv = ga_mv.normalize(mv);
+    // std.debug.print("{}\n", .{mv});
+
+    // std.debug.print("{}\n", .{ga_mv.normalize(ga_mv.mul(
+    //     ga_mv.dot(
+    //         ga_mv.MV.fromEq(1, -1, 0),
+    //         ga_mv.MV.fromCart(2, 0),
+    //     ),
+    //     ga_mv.MV.fromEq(1, -1, 0),
+    // ))}); // projection of point onto line
+    // std.debug.print("{}\n", .{ga_mv.normalize(ga_mv.mul(
+    //     ga_mv.mul(
+    //         ga_mv.MV.fromEq(1, -1, 0),
+    //         ga_mv.MV.fromCart(2, 0),
+    //     ),
+    //     ga_mv.MV.fromEq(1, -1, 0),
+    // ))}); // reflection of point across line
 
     try std.testing.expect(true);
 }
