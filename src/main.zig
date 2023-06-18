@@ -221,9 +221,14 @@ pub const CL201 = struct {
     fn mulReturnType(comptime Ta: type, comptime Tb: type) type {
         if ((Ta == Rotor and Tb == Translator) or (Ta == Translator and Tb == Rotor)) {
             return Motor;
+        } else if (Ta == Motor and Tb == Motor) {
+            return Motor;
         }
         @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
     }
+    /// mul(rotor, translator) -> motor that first translates, then rotates
+    /// mul(translator, rotor) -> motor that first rotates, then translates
+    /// mul(motor a, motor b) -> motor that first applies motor b, then motor a
     pub fn mul(a: anytype, b: anytype) mulReturnType(@TypeOf(a), @TypeOf(b)) {
         const Ta = @TypeOf(a);
         const Tb = @TypeOf(b);
@@ -240,6 +245,13 @@ pub const CL201 = struct {
                 .e01 = b.s * a.e01 + b.e12 * a.e20,
                 .e20 = b.s * a.e20 - b.e12 * a.e01,
                 .e12 = b.e12 * a.s,
+            };
+        } else if (Ta == Motor and Tb == Motor) {
+            return Motor{
+                .s = a.s * b.s - a.e12 * b.e12,
+                .e01 = a.s * b.e20 - a.e01 * b.e12 + a.e20 * b.s + a.e12 * b.e01,
+                .e20 = a.s * b.e01 + a.e01 * b.s + a.e20 * b.e12 - a.e12 * b.e20,
+                .e12 = a.s * b.e12 + a.e12 * b.s,
             };
         }
         @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
@@ -497,6 +509,33 @@ test "basic functionality" {
         ga.mul(
             ga.Rotor.fromRad(0.5 * std.math.pi),
             ga.Translator.fromCart(1, 1),
+        ),
+        ga.Point.fromCart(1, 1),
+    )});
+
+    std.debug.print("{}\n", .{ga.apply(
+        ga.mul(
+            ga.mul(
+                ga.Rotor.fromRad(0.5 * std.math.pi),
+                ga.Translator.fromCart(1, 1),
+            ),
+            ga.mul(
+                ga.Translator.fromCart(1, 1),
+                ga.Rotor.fromRad(0.5 * std.math.pi),
+            ),
+        ),
+        ga.Point.fromCart(1, 1),
+    )});
+    std.debug.print("{}\n", .{ga.apply(
+        ga.mul(
+            ga.mul(
+                ga.Translator.fromCart(1, 1),
+                ga.Rotor.fromRad(0.5 * std.math.pi),
+            ),
+            ga.mul(
+                ga.Rotor.fromRad(0.5 * std.math.pi),
+                ga.Translator.fromCart(1, 1),
+            ),
         ),
         ga.Point.fromCart(1, 1),
     )});
