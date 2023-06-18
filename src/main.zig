@@ -56,7 +56,6 @@ pub const CL201 = struct {
         e20: f32,
 
         pub fn fromCart(dx: f32, dy: f32) Translator {
-            // FIXME what's the actual calculation?
             return Translator{ .s = 1.0, .e20 = 0.5 * dx, .e01 = -0.5 * dy };
         }
     };
@@ -219,22 +218,32 @@ pub const CL201 = struct {
         @compileError("apply (sandwich) not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
     }
 
-    // fn mulReturnType(comptime Ta: type, comptime Tb: type) type {
-    //     if (Ta == Line and Tb == Line) {
-    //         return Line;
-    //     }
-    //     @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
-    // }
-    // pub fn mul(a: anytype, b: anytype) mulReturnType(@TypeOf(a), @TypeOf(b)) {
-    //     const Ta = @TypeOf(a);
-    //     const Tb = @TypeOf(b);
-    //     if (Ta == Line and Tb == Line) {}
-    //     @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
-    // }
-
-    // TODO think about how to unify interface
-    // reflect point b across line a using sandwich product
-    // pub fn swch_lp(a: Line, b: Point) Point {}
+    fn mulReturnType(comptime Ta: type, comptime Tb: type) type {
+        if ((Ta == Rotor and Tb == Translator) or (Ta == Translator and Tb == Rotor)) {
+            return Motor;
+        }
+        @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
+    }
+    pub fn mul(a: anytype, b: anytype) mulReturnType(@TypeOf(a), @TypeOf(b)) {
+        const Ta = @TypeOf(a);
+        const Tb = @TypeOf(b);
+        if (Ta == Rotor and Tb == Translator) {
+            return Motor{
+                .s = a.s * b.s,
+                .e01 = a.s * b.e01 - a.e12 * b.e20,
+                .e20 = a.s * b.e20 + a.e12 * b.e01,
+                .e12 = a.e12 * b.s,
+            };
+        } else if (Ta == Translator and Tb == Rotor) {
+            return Motor{
+                .s = a.s * b.s,
+                .e01 = b.s * a.e01 + b.e12 * a.e20,
+                .e20 = b.s * a.e20 - b.e12 * a.e01,
+                .e12 = b.e12 * a.s,
+            };
+        }
+        @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
+    }
 };
 
 pub const CL201MV = struct {
@@ -465,6 +474,30 @@ test "basic functionality" {
 
     std.debug.print("{}\n", .{ga.apply(
         ga.Translator.fromCart(1, 1),
+        ga.Point.fromCart(1, 1),
+    )});
+
+    std.debug.print("{}\n", .{ga.mul(
+        ga.Translator.fromCart(1, 1),
+        ga.Rotor.fromRad(0.5 * std.math.pi),
+    )});
+    std.debug.print("{}\n", .{ga.mul(
+        ga.Rotor.fromRad(0.5 * std.math.pi),
+        ga.Translator.fromCart(1, 1),
+    )});
+
+    std.debug.print("{}\n", .{ga.apply(
+        ga.mul(
+            ga.Translator.fromCart(1, 1),
+            ga.Rotor.fromRad(0.5 * std.math.pi),
+        ),
+        ga.Point.fromCart(1, 1),
+    )});
+    std.debug.print("{}\n", .{ga.apply(
+        ga.mul(
+            ga.Rotor.fromRad(0.5 * std.math.pi),
+            ga.Translator.fromCart(1, 1),
+        ),
         ga.Point.fromCart(1, 1),
     )});
 
