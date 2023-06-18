@@ -198,9 +198,12 @@ pub const CL201 = struct {
             const y = b.e20;
             const z = b.e12;
             return Point{
-                .e20 = s * s * x + w * (2 * s * y - w * x),
-                .e01 = s * s * y + w * (2 * s * x - w * y),
-                .e12 = z * (s + w * w),
+                // .e20 = s * s * x + w * (2 * s * y - w * x),
+                // .e01 = s * s * y + w * (2 * s * x - w * y),
+                // .e12 = z * (s + w * w),
+                .e20 = s * (s * x + w * y) + w * (s * y - w * x),
+                .e01 = s * (s * y - w * x) - w * (s * x + w * y),
+                .e12 = z * (s * s + w * w),
             };
         }
 
@@ -420,6 +423,14 @@ test "basic functionality" {
     )});
 
     std.debug.print("{}\n", .{
+        ga.Rotor.fromRad(0.25 * std.math.pi),
+    });
+    std.debug.print("{}\n", .{ga.apply(
+        ga.Rotor.fromRad(0.25 * std.math.pi),
+        ga.Point.fromCart(1, 1),
+    )});
+
+    std.debug.print("{}\n", .{
         ga.Rotor.fromRad(0.5 * std.math.pi),
     });
     std.debug.print("{}\n", .{ga.apply(
@@ -432,6 +443,14 @@ test "basic functionality" {
     });
     std.debug.print("{}\n", .{ga.apply(
         ga.Rotor.fromRad(std.math.pi),
+        ga.Point.fromCart(1, 1),
+    )});
+
+    std.debug.print("{}\n", .{
+        ga.Rotor.fromRad(2 * std.math.pi),
+    });
+    std.debug.print("{}\n", .{ga.apply(
+        ga.Rotor.fromRad(2 * std.math.pi),
         ga.Point.fromCart(1, 1),
     )});
 
