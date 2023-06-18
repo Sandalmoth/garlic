@@ -57,7 +57,7 @@ pub const CL201 = struct {
 
         pub fn fromCart(dx: f32, dy: f32) Translator {
             // FIXME what's the actual calculation?
-            return Translator{ .s = 1.0, .e20 = -2 * dx, .e01 = dy };
+            return Translator{ .s = 1.0, .e20 = 0.5 * dx, .e01 = -0.5 * dy };
         }
     };
 
@@ -162,11 +162,12 @@ pub const CL201 = struct {
         const Tb = @TypeOf(b);
         if (Ta == Motor and Tb == Point) {
             // motor * point * rev(motor)
-            // (s + ue01 + ve20 + we12)(xe20 + ye01 + ze12)
-            // = (sx + wy - uz)e20 + (sy + vz - wx)e01 - wz + sze12
-            // [(sx + wy - uz)e20 + (sy + vz - wx)e01 - wz + sze12](s - ue01 - ve20 - we12)
-            // = (s2x + 2swy - suz + 2vwz - w2x - svz)e20 + (s2y + svz - 2swx + 2uwz - w2y + suz)e01 + (sz + w2z)e12
-            // = (s(sx - uz - vz) + w(2sy + 2vz - wx))e20 + (s(sy + vz + uz) + w(2uz - 2sx - wy)e01 + z(s + w2)e12
+            // (xe20 + ye01 + ze12)
+            // = (sx - uz + wy)e20 + (sy + vz - wx)e01 + sze12 - wz
+            // [(sx - uz + wy)e20 + (sy + vz - wx)e01 + sze12 - wz](s - ue01 - ve20 - we12)
+            // A = (sx - uz + wy)
+            // B = (sy + vz - wx)
+            // = (sA - suz + vwz + wB)e20 + (sB + uwz + svz - wA)e01 + z(s2 + w2)e12
             const s = a.s;
             const u = a.e01;
             const v = a.e20;
@@ -174,10 +175,12 @@ pub const CL201 = struct {
             const x = b.e01;
             const y = b.e20;
             const z = b.e12;
+            const A = s * x - u * z + w * y;
+            const B = s * y + v * z - w * x;
             return Point{
-                .e20 = s * (s * x - u * z - v * z) + w * (2 * s * y + 2 * v * z - w * x),
-                .e01 = s * (s * y + v * z + u * z) + w * (2 * u * z - 2 * s * x - w * y),
-                .e12 = z * (s + w * w),
+                .e20 = s * A - s * u * z + v * w * z + w * B,
+                .e01 = s * B + u * w * z + s * v * z - w * A,
+                .e12 = z * (s * s + w * w),
             };
         } else if (Ta == Translator and Tb == Point) {
             const s = a.s;
@@ -186,23 +189,29 @@ pub const CL201 = struct {
             const x = b.e01;
             const y = b.e20;
             const z = b.e12;
+            const A = s * x - u * z;
+            const B = s * y + v * z;
             return Point{
-                .e20 = s * (s * x - u * z - v * z),
-                .e01 = s * (s * y + v * z + u * z),
-                .e12 = z * s,
+                .e20 = s * A - s * u * z,
+                .e01 = s * B + s * v * z,
+                .e12 = z * s * s,
             };
         } else if (Ta == Rotor and Tb == Point) {
+            // rotor * point * rev(rotor)
+            // (s + we12)(xe20 + ye01 + ze12)
+            // = (sx + wy)e20 + (sy - wx)e01 + sze12 = wz
+            // [(sx + wy)e20 + (sy - wx)e01 + sze12 = wz](s - we12)
+            // = (s(sx + wy) + w(sy - wx))e20 + (s(sy - wx) - w(sx + wy))e01 + z(s2 - w2)e12
             const s = a.s;
             const w = a.e12;
             const x = b.e01;
             const y = b.e20;
             const z = b.e12;
+            const A = s * x + w * y;
+            const B = s * y - w * x;
             return Point{
-                // .e20 = s * s * x + w * (2 * s * y - w * x),
-                // .e01 = s * s * y + w * (2 * s * x - w * y),
-                // .e12 = z * (s + w * w),
-                .e20 = s * (s * x + w * y) + w * (s * y - w * x),
-                .e01 = s * (s * y - w * x) - w * (s * x + w * y),
+                .e20 = s * A + w * B,
+                .e01 = s * B - w * A,
                 .e12 = z * (s * s + w * w),
             };
         }
