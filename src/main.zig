@@ -142,6 +142,8 @@ pub const CL201 = struct {
         @compileError("dual not supported for type " ++ @typeName(T));
     }
 
+    /// outer product
+    // TODO does it make sense to apply this to anything else?
     pub fn meet(a: Line, b: Line) Point {
         var p = Point{
             .e20 = a.e2 * b.e0 - a.e0 * b.e2,
@@ -151,8 +153,16 @@ pub const CL201 = struct {
         return p;
     }
 
+    /// regressive product
+    // TODO does it make sense to apply this to anything else?
     pub fn join(a: Point, b: Point) Line {
-        return dual(meet(dual(b), dual(a)));
+        // return dual(meet(dual(b), dual(a)));
+        var p = Line{
+            .e1 = a.e12 * b.e01 - a.e01 * b.e12,
+            .e2 = a.e20 * b.e12 - a.e12 * b.e20,
+            .e0 = a.e01 * b.e20 - a.e20 * b.e01,
+        };
+        return p;
     }
 
     /// sandwidth multiplication of a*b*reverse(a)
@@ -428,21 +438,21 @@ test "basic functionality" {
     std.debug.print("{}\n", .{ga.Point.fromCart(-1, -1)});
     std.debug.print("{}\n", .{ga_mv.MV.fromCart(1, 1)});
     std.debug.print("{}\n", .{ga.Point.fromCart(-1, -1)});
-    std.debug.print("{}\n", .{ga_mv.join(
+    std.debug.print("join {}\n", .{ga_mv.join(
         ga_mv.MV.fromCart(-1, -1),
         ga_mv.MV.fromCart(1, 1),
     )});
-    std.debug.print("{}\n", .{ga.join(
+    std.debug.print("join {}\n", .{ga.join(
         ga.Point.fromCart(-1, -1),
         ga.Point.fromCart(1, 1),
     )});
     std.debug.print("{}\n", .{ga_mv.MV.fromCart(-1, -1)});
     std.debug.print("{}\n", .{ga.normalized(ga.Point.fromCart(-1, -1))});
-    std.debug.print("{}\n", .{ga_mv.meet(
+    std.debug.print("meet {}\n", .{ga_mv.meet(
         ga_mv.MV.fromEq(-1, -1, 2),
         ga_mv.MV.fromEq(1, -1, 0),
     )});
-    std.debug.print("{}\n", .{ga.meet(
+    std.debug.print("meet {}\n", .{ga.meet(
         ga.Line.fromEq(-1, -1, 2),
         ga.Line.fromEq(1, -1, 0),
     )});
