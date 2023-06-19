@@ -165,6 +165,31 @@ pub const CL201 = struct {
         return p;
     }
 
+    /// projection of a onto b
+    // TODO somewhat worried that one of these is negated
+    pub fn project(a: anytype, b: anytype) @TypeOf(a) {
+        const Ta = @TypeOf(a);
+        const Tb = @TypeOf(b);
+        // this appears to be wrong
+        if (Ta == Line and Tb == Point) {
+            const z2 = b.e12 * b.e12;
+            return Line{
+                .e1 = a.e1 * z2,
+                .e2 = a.e2 * z2,
+                .e0 = -b.e12 * (a.e1 * b.e20 + a.e2 * b.e01),
+            };
+        } else if (Ta == Point and Tb == Line) {
+            const A = b.e2 * a.e20 - b.e1 * a.e01;
+            const wz = b.e0 * a.e12;
+            return Point{
+                .e20 = b.e1 * wz - A * b.e2,
+                .e01 = b.e2 * wz + A * b.e1,
+                .e12 = a.e12 * (b.e1 * b.e1 - b.e2 * b.e2),
+            };
+        }
+        @compileError("project not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
+    }
+
     /// sandwidth multiplication of a*b*reverse(a)
     pub fn apply(a: anytype, b: anytype) @TypeOf(b) {
         const Ta = @TypeOf(a);
@@ -548,6 +573,15 @@ test "basic functionality" {
             ),
         ),
         ga.Point.fromCart(1, 1),
+    )});
+
+    std.debug.print("{}\n", .{ga.project(
+        ga.Line.fromEq(1, 1, 0),
+        ga.Point.fromCart(1, 1),
+    )});
+    std.debug.print("{}\n", .{ga.project(
+        ga.Point.fromCart(1, 1),
+        ga.Line.fromEq(1, 1, 0),
     )});
 
     // var mv = ga_mv.MV{ .e01 = 1, .e20 = 1 }; // a direction
