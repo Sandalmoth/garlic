@@ -184,7 +184,7 @@ pub const CL201 = struct {
             return Point{
                 .e20 = b.e1 * wz - A * b.e2,
                 .e01 = b.e2 * wz + A * b.e1,
-                .e12 = a.e12 * (b.e1 * b.e1 - b.e2 * b.e2),
+                .e12 = a.e12 * (b.e1 * b.e1 + b.e2 * b.e2),
             };
         }
         @compileError("project not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
@@ -581,6 +581,10 @@ test "basic functionality" {
     )});
     std.debug.print("{}\n", .{ga.project(
         ga.Point.fromCart(1, 1),
+        ga.Line.fromEq(1, 1, 0),
+    )});
+    std.debug.print("{}\n", .{ga.project(
+        ga.Point.fromCart(1, 2),
         ga.Line.fromEq(1, 1, 0),
     )});
 
