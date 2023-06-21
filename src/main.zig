@@ -78,6 +78,16 @@ pub const CL201 = struct {
 
     // pub const Flector = struct {} ???
 
+    /// euclidian norm?
+    /// FIXME are there ambiguous cases?
+    pub fn norm(a: anytype) f32 {
+        const T = @TypeOf(a);
+        if (T == Line) {
+            return @sqrt(a.e1 * a.e1 + a.e2 * a.e2);
+        }
+        @compileError("norm not supported for type " ++ @typeName(T));
+    }
+
     /// return a normalized copy
     pub fn normalized(a: anytype) @TypeOf(a) {
         const T = @TypeOf(a);

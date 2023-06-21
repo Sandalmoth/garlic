@@ -29,6 +29,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    exe_circles.addAnonymousModule("garlic", .{ .source_file = .{ .path = "./src/main.zig" } });
     const run_circles = b.addRunArtifact(exe_circles);
     const circles_step = b.step("example-circles", "run circle physics example");
     circles_step.dependOn(&run_circles.step);
