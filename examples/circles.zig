@@ -11,22 +11,22 @@ const right = 5;
 
 var renderbuffer: [gridsize * gridsize]u8 = [_]u8{' '} ** (gridsize * gridsize);
 
-var circles = [_]ga.Point{
-    ga.Point.fromCart(1.5, 2),
-    ga.Point.fromCart(3.5, 5),
-    ga.Point.fromCart(2.5, 7),
+var circles = [_]ga.Translator{
+    ga.Translator.fromCart(1.5, 2),
+    ga.Translator.fromCart(3.5, 5),
+    ga.Translator.fromCart(2.5, 7),
 };
 var radii = [_]f32{ 1.0, 0.5, 0.75 };
+var velocities = [_]ga.Direction{
+    ga.Direction{ .e20 = 0.0, .e01 = 0.0 },
+    ga.Direction{ .e20 = 0.0, .e01 = 0.0 },
+    ga.Direction{ .e20 = 0.0, .e01 = 0.0 },
+};
 
 pub fn draw() void {
     // probably very bad drawing function
     renderbuffer = [_]u8{' '} ** (gridsize * gridsize);
     std.debug.print("\x1B[2J\x1B[H", .{});
-
-    for (&circles, radii) |*c, r| {
-        _ = r;
-        c.toCart();
-    }
 
     for (0..gridsize) |y| {
         for (0..gridsize) |x| {
@@ -36,8 +36,8 @@ pub fn draw() void {
                 (@intToFloat(f32, gridsize - y - 1) + 0.5) / gridsize * (top - bottom),
             );
             for (circles, radii) |c, r| {
-                if (ga.norm(ga.join(c, p)) < r) {
-                    renderbuffer[y * gridsize + x] = 'O';
+                if (ga.norm(ga.join(ga.apply(c, ga.Point.fromCart(0, 0)), p)) < r) {
+                    renderbuffer[y * gridsize + x] = 'X';
                 }
             }
         }

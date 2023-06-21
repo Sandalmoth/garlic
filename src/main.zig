@@ -56,7 +56,7 @@ pub const CL201 = struct {
         e20: f32,
 
         pub fn fromCart(dx: f32, dy: f32) Translator {
-            return Translator{ .s = 1.0, .e20 = 0.5 * dx, .e01 = -0.5 * dy };
+            return Translator{ .s = 1.0, .e20 = 0.5 * dy, .e01 = -0.5 * dx };
         }
     };
 
