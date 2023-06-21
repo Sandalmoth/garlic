@@ -18,12 +18,12 @@ var circles = [_]ga.Translator{
 };
 var radii = [_]f32{ 1.0, 0.5, 0.75 };
 var velocities = [_]ga.Direction{
-    ga.Direction{ .e20 = 0.0, .e01 = 0.0 },
-    ga.Direction{ .e20 = 0.0, .e01 = 0.0 },
-    ga.Direction{ .e20 = 0.0, .e01 = 0.0 },
+    ga.Direction{ .e20 = 0.1, .e01 = 0.0 },
+    ga.Direction{ .e20 = 0.0, .e01 = 0.1 },
+    ga.Direction{ .e20 = -0.1, .e01 = -0.1 },
 };
 
-pub fn draw() void {
+fn draw() void {
     // probably very bad drawing function
     renderbuffer = [_]u8{' '} ** (gridsize * gridsize);
     std.debug.print("\x1B[2J\x1B[H", .{});
@@ -48,8 +48,18 @@ pub fn draw() void {
     }
 }
 
+fn update() void {
+    for (&circles, &velocities) |*c, *v| {
+        c.* = ga.add(c.*, ga.neg(ga.mul(c.*, v.*)));
+    }
+}
+
 pub fn main() void {
     std.debug.assert(circles.len == radii.len);
 
-    draw();
+    while (true) {
+        draw();
+        update();
+        std.time.sleep(100_000_000);
+    }
 }

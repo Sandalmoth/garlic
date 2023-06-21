@@ -268,6 +268,11 @@ pub const CL201 = struct {
             return Motor;
         } else if (Ta == Motor and Tb == Motor) {
             return Motor;
+        } else if (Ta == Motor and Tb == Point) {
+            return Motor;
+        } else if (Ta == Translator and Tb == Direction) {
+            // is this conceptually right?
+            return Translator;
         }
         @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
     }
@@ -298,8 +303,75 @@ pub const CL201 = struct {
                 .e20 = a.s * b.e01 + a.e01 * b.s + a.e20 * b.e12 - a.e12 * b.e20,
                 .e12 = a.s * b.e12 + a.e12 * b.s,
             };
+        } else if (Ta == Motor and Tb == Point) {
+            // todo, add all simpler variants (translators, rotors, directions)
+            return Motor{
+                .s = -a.e12 * b.e12,
+                .e01 = a.s * b.e01 + a.e20 * b.e12 - a.e12 * b.e20,
+                .e20 = a.s * b.e20 + a.e12 * b.e01 - a.e01 * b.e12,
+                .e12 = a.s * b.e12,
+            };
+        } else if (Ta == Translator and Tb == Direction) {
+            // todo, add all simpler variants (translators, rotors, directions)
+            // is this a translator, or a direction, conceptually?
+            return Translator{
+                .s = 0,
+                .e01 = a.s * b.e01,
+                .e20 = a.s * b.e20,
+            };
         }
         @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
+    }
+
+    // these functions below seem like a good idea to base it on @Vector
+
+    pub fn add(a: anytype, b: anytype) @TypeOf(a) {
+        const Ta = @TypeOf(a);
+        const Tb = @TypeOf(b);
+        if (Ta == Direction and Tb == Direction) {
+            return Direction{
+                .e20 = a.e20 + b.e20,
+                .e01 = a.e01 + b.e01,
+            };
+        } else if (Ta == Translator and Tb == Translator) {
+            return Translator{
+                .s = a.s + b.s,
+                .e01 = a.e01 + b.e01,
+                .e20 = a.e20 + b.e20,
+            };
+        } else if (Ta == Motor and Tb == Motor) {
+            return Motor{
+                .s = a.s + b.s,
+                .e01 = a.e01 + b.e01,
+                .e20 = a.e20 + b.e20,
+                .e12 = a.e12 + b.e12,
+            };
+        }
+        @compileError("add not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
+    }
+
+    pub fn neg(a: anytype) @TypeOf(a) {
+        const Ta = @TypeOf(a);
+        if (Ta == Direction) {
+            return Direction{
+                .e20 = -a.e20,
+                .e01 = -a.e01,
+            };
+        } else if (Ta == Translator) {
+            return Translator{
+                .s = -a.s,
+                .e01 = -a.e01,
+                .e20 = -a.e20,
+            };
+        } else if (Ta == Motor) {
+            return Motor{
+                .s = -a.s,
+                .e01 = -a.e01,
+                .e20 = -a.e20,
+                .e12 = -a.e12,
+            };
+        }
+        @compileError("neg not supported for type " ++ @typeName(Ta));
     }
 };
 
