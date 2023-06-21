@@ -12,7 +12,7 @@ pub const CL201 = struct {
     pub const Point = struct {
         e20: f32, // x
         e01: f32, // y
-        e12: f32, // homogenous coords, 1 = points, 0 = direction
+        e12: f32, // homogenous coords, 0 = direction else point
 
         pub fn fromCart(x: f32, y: f32) Point {
             return Point{ .e20 = x, .e01 = y, .e12 = 1.0 };
@@ -32,7 +32,7 @@ pub const CL201 = struct {
     pub const Direction = struct {
         e20: f32, // x
         e01: f32, // y
-        // e12: f32 = 0, homogenous coords, 1 = points, 0 = direction
+        // e12: f32 = 0, homogenous coords, 0 = direction
 
         pub fn fromRad(d: f32) Direction {
             return Direction{ .e20 = @cos(d), .e01 = @sin(d) };
@@ -74,6 +74,14 @@ pub const CL201 = struct {
         e01: f32,
         e20: f32,
         e12: f32,
+
+        pub fn fromCart(dx: f32, dy: f32) Motor {
+            return Motor{ .s = 1.0, .e20 = 0.5 * dy, .e01 = -0.5 * dx, .e12 = 0 };
+        }
+
+        pub fn fromRad(d: f32) Motor {
+            return Motor{ .s = @cos(0.5 * d), .e01 = 0, .e20 = 0, .e12 = @sin(0.5 * d) };
+        }
     };
 
     // pub const Flector = struct {} ???
@@ -127,7 +135,7 @@ pub const CL201 = struct {
 
     // neat construction i learned from zmath
     fn dualReturnType(comptime T: type) type {
-        if (T == Point) {
+        if (T == Point or T == Direction) {
             return Line;
         } else if (T == Line) {
             return Point;
@@ -142,6 +150,12 @@ pub const CL201 = struct {
                 .e2 = a.e01,
                 .e0 = a.e12,
             };
+        } else if (T == Direction) {
+            return Line{
+                .e1 = a.e20,
+                .e2 = a.e01,
+                .e0 = 0,
+            };
         } else if (T == Line) {
             return Point{
                 .e20 = a.e1,
@@ -150,6 +164,24 @@ pub const CL201 = struct {
             };
         }
         @compileError("dual not supported for type " ++ @typeName(T));
+    }
+
+    pub fn rev(a: anytype) @TypeOf(a) {
+        const Ta = @TypeOf(a);
+        switch (Ta) {
+            Motor => return Motor{
+                .s = a.s,
+                .e01 = -a.e01,
+                .e20 = -a.e20,
+                .e12 = -a.e12,
+            },
+            Translator => return Translator{
+                .s = a.s,
+                .e01 = -a.e01,
+                .e20 = -a.e20,
+            },
+            else => @compileError("rev not supported for type " ++ @typeName(Ta)),
+        }
     }
 
     /// outer product
@@ -258,6 +290,11 @@ pub const CL201 = struct {
                 .e01 = s * B - w * A,
                 .e12 = z * (s * s + w * w),
             };
+        } else if (Ta == Translator and Tb == Direction) {
+            return Direction{
+                .e20 = a.s * a.s * b.e01,
+                .e01 = a.s * a.s * b.e20,
+            };
         }
 
         @compileError("apply (sandwich) not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
@@ -270,9 +307,14 @@ pub const CL201 = struct {
             return Motor;
         } else if (Ta == Motor and Tb == Point) {
             return Motor;
+        } else if (Ta == Translator and Tb == Point) {
+            // is this conceptually right?
+            return Motor;
         } else if (Ta == Translator and Tb == Direction) {
             // is this conceptually right?
             return Translator;
+        } else if (Tb == f32) {
+            return Ta;
         }
         @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
     }
@@ -311,13 +353,33 @@ pub const CL201 = struct {
                 .e20 = a.s * b.e20 + a.e12 * b.e01 - a.e01 * b.e12,
                 .e12 = a.s * b.e12,
             };
-        } else if (Ta == Translator and Tb == Direction) {
+        } else if (Ta == Translator and Tb == Point) {
             // todo, add all simpler variants (translators, rotors, directions)
+            return Motor{
+                .s = 0,
+                .e01 = a.s * b.e01 + a.e20 * b.e12,
+                .e20 = a.s * b.e20 - a.e01 * b.e12,
+                .e12 = a.s * b.e12,
+            };
+        } else if (Ta == Translator and Tb == Direction) {
             // is this a translator, or a direction, conceptually?
             return Translator{
                 .s = 0,
                 .e01 = a.s * b.e01,
                 .e20 = a.s * b.e20,
+            };
+        } else if (Ta == Translator and Tb == f32) {
+            return Translator{
+                .s = a.s * b,
+                .e01 = a.e01 * b,
+                .e20 = a.e20 * b,
+            };
+        } else if (Ta == Motor and Tb == f32) {
+            return Motor{
+                .s = a.s * b,
+                .e01 = a.e01 * b,
+                .e20 = a.e20 * b,
+                .e12 = a.e12 * b,
             };
         }
         @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
@@ -332,6 +394,18 @@ pub const CL201 = struct {
             return Direction{
                 .e20 = a.e20 + b.e20,
                 .e01 = a.e01 + b.e01,
+            };
+        } else if (Ta == Point and Tb == Point) {
+            return Point{
+                .e20 = a.e20 + b.e20,
+                .e01 = a.e01 + b.e01,
+                .e12 = a.e12 + b.e12,
+            };
+        } else if (Ta == Line and Tb == Line) {
+            return Line{
+                .e1 = a.e1 + b.e1,
+                .e2 = a.e2 + b.e2,
+                .e0 = a.e0 + b.e0,
             };
         } else if (Ta == Translator and Tb == Translator) {
             return Translator{

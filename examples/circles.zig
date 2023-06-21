@@ -8,26 +8,25 @@ const bottom = 0;
 const top = 10;
 const left = 0;
 const right = 5;
+const dt = 0.001;
 
 var renderbuffer: [gridsize * gridsize]u8 = [_]u8{' '} ** (gridsize * gridsize);
 
-var circles = [_]ga.Translator{
-    ga.Translator.fromCart(1.5, 2),
-    ga.Translator.fromCart(3.5, 5),
-    ga.Translator.fromCart(2.5, 7),
+var circles = [_]ga.Motor{
+    ga.Motor.fromCart(1.5, 2),
+    ga.Motor.fromCart(3.5, 5),
+    ga.Motor.fromCart(2.5, 7),
 };
 var radii = [_]f32{ 1.0, 0.5, 0.75 };
-var velocities = [_]ga.Direction{
-    ga.Direction{ .e20 = 0.1, .e01 = 0.0 },
-    ga.Direction{ .e20 = 0.0, .e01 = 0.1 },
-    ga.Direction{ .e20 = -0.1, .e01 = -0.1 },
-};
+// these are not world space!
+var velocities = [_]ga.Point{ga.Point{ .e20 = 0.0, .e01 = 0.0, .e12 = 0 }} ** 3;
 
 fn draw() void {
     // probably very bad drawing function
     renderbuffer = [_]u8{' '} ** (gridsize * gridsize);
     std.debug.print("\x1B[2J\x1B[H", .{});
 
+    // for each pixel, check if it's in the radius of any circle
     for (0..gridsize) |y| {
         for (0..gridsize) |x| {
             // surely there's a nicer way
@@ -50,7 +49,27 @@ fn draw() void {
 
 fn update() void {
     for (&circles, &velocities) |*c, *v| {
-        c.* = ga.add(c.*, ga.neg(ga.mul(c.*, v.*)));
+        std.debug.print("{}\t{}\n", .{ c.*, v.* });
+        std.debug.print("{}\n", .{ga.mul(c.*, v.*)});
+        const f = ga.dual(ga.apply(
+            ga.rev(c.*),
+            ga.Point{ .e20 = 0.0, .e01 = 9.82, .e12 = 0.0 },
+        ));
+        std.debug.print("{} {s}\n", .{ f, @typeName(@TypeOf(f)) });
+        c.* = ga.add(
+            c.*,
+            ga.mul(ga.mul(c.*, v.*), @as(f32, -0.5 * dt)),
+        );
+        const dcomm = ga.Line{
+            .e1 = v.e01 * v.e12,
+            .e2 = -v.e20 * v.e12,
+            .e0 = 0,
+        };
+        v.* = ga.add(
+            v.*,
+            ga.dual(ga.add(f, dcomm)),
+        );
+        std.debug.print("{}\t{}\n", .{ c.*, v.* });
     }
 }
 
