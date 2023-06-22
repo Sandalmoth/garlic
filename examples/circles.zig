@@ -66,6 +66,7 @@ fn draw() void {
 
 fn update() void {
     for (&circles, &velocities, radii) |*c, *v, r| {
+        std.debug.print("{}\n", .{v.*});
         // basic state update (gravity + movement)
         const f = ga.dual(ga.apply(
             ga.rev(c.*),
@@ -110,6 +111,13 @@ fn update() void {
                 ga.Point.fromCart(0, 0),
             );
             std.debug.print("{}\n", .{n});
+            std.debug.print("{}\n", .{v.*});
+            // somehow calculate impulse
+            // const j = -(1 + 0.5) * velocity_along_normal * r * r;
+            v.* = ga.add(
+                v.*,
+                ga.mul(ga.dual(n), @as(f32, -100)),
+            );
         }
     }
 }

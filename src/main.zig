@@ -425,6 +425,12 @@ pub const CL201 = struct {
                 .e20 = a.e20 * b,
                 .e12 = a.e12 * b,
             };
+        } else if (Ta == Point and Tb == f32) {
+            return Point{
+                .e20 = a.e20 * b,
+                .e01 = a.e01 * b,
+                .e12 = a.e12 * b,
+            };
         }
         @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
     }
