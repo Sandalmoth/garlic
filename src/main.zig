@@ -249,6 +249,16 @@ pub const CL201 = struct {
         @compileError("project not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
     }
 
+    /// inner product
+    /// for line and point, returns line through point perpendicular to line
+    pub fn inner(a: Line, b: Point) Line {
+        return Line{
+            .e1 = a.e2 * b.e12,
+            .e2 = a.e1 * b.e12,
+            .e0 = (a.e2 * b.e20 - a.e1 * b.e01),
+        };
+    }
+
     /// sandwidth multiplication of a*b*reverse(a)
     pub fn apply(a: anytype, b: anytype) @TypeOf(b) {
         const Ta = @TypeOf(a);
@@ -274,6 +284,23 @@ pub const CL201 = struct {
                 .e20 = s * A - s * u * z + v * w * z + w * B,
                 .e01 = s * B + u * w * z + s * v * z - w * A,
                 .e12 = z * (s * s + w * w),
+            };
+        } else if (Ta == Motor and Tb == Line) {
+            const s = a.s;
+            const u = a.e01;
+            const v = a.e20;
+            const w = a.e12;
+            const x = b.e1;
+            const y = b.e2;
+            const z = b.e0;
+            const A = s * x + w * y;
+            const B = s * y - w * x;
+            const C = s * z + u * x - v * y;
+            const D = w * z + u * y + v * x;
+            return Line{
+                .e1 = s * A + w * B,
+                .e2 = s * B - w * A,
+                .e0 = s * C + u * A - v * B + w * D,
             };
         } else if (Ta == Translator and Tb == Point) {
             const s = a.s;

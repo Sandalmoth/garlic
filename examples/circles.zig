@@ -97,7 +97,19 @@ fn update() void {
             if (d > r) {
                 continue;
             }
+            // we are colliding with this wall
             std.debug.print("collision {} {} {}\n", .{ d, c.*, w });
+
+            // transform the wall into the body space
+            // and figure out the normal in body space
+            // note that the center of a circle,
+            // in the body space,
+            // is always at the origin
+            const n = ga.inner(
+                ga.apply(ga.rev(c.*), w),
+                ga.Point.fromCart(0, 0),
+            );
+            std.debug.print("{}\n", .{n});
         }
     }
 }
