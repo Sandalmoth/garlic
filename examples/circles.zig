@@ -1,3 +1,5 @@
+// roughly based on https://enki.ws/ganja.js/examples/pga_dyn.html
+
 const std = @import("std");
 const garlic = @import("garlic");
 
@@ -8,7 +10,9 @@ const bottom = 0;
 const top = 10;
 const left = 0;
 const right = 5;
+
 const dt = 0.001;
+const dframe = 50_000_000;
 
 var renderbuffer: [gridsize * gridsize]u8 = [_]u8{' '} ** (gridsize * gridsize);
 
@@ -20,6 +24,19 @@ var circles = [_]ga.Motor{
 var radii = [_]f32{ 1.0, 0.5, 0.75 };
 // these are not world space!
 var velocities = [_]ga.Point{ga.Point{ .e20 = 0.0, .e01 = 0.0, .e12 = 0 }} ** 3;
+
+const corners = [_]ga.Point{
+    ga.Point.fromCart(left, bottom),
+    ga.Point.fromCart(right, bottom),
+    ga.Point.fromCart(right, top),
+    ga.Point.fromCart(left, top),
+};
+const walls = [_]ga.Line{
+    ga.normalized(ga.join(corners[3], corners[2])),
+    ga.normalized(ga.join(corners[2], corners[1])),
+    ga.normalized(ga.join(corners[1], corners[0])),
+    ga.normalized(ga.join(corners[0], corners[3])),
+};
 
 fn draw() void {
     // probably very bad drawing function
@@ -48,14 +65,12 @@ fn draw() void {
 }
 
 fn update() void {
-    for (&circles, &velocities) |*c, *v| {
-        std.debug.print("{}\t{}\n", .{ c.*, v.* });
-        std.debug.print("{}\n", .{ga.mul(c.*, v.*)});
+    for (&circles, &velocities, radii) |*c, *v, r| {
+        // basic state update (gravity + movement)
         const f = ga.dual(ga.apply(
             ga.rev(c.*),
             ga.Point{ .e20 = 0.0, .e01 = 9.82, .e12 = 0.0 },
         ));
-        std.debug.print("{} {s}\n", .{ f, @typeName(@TypeOf(f)) });
         c.* = ga.add(
             c.*,
             ga.mul(ga.mul(c.*, v.*), @as(f32, -0.5 * dt)),
@@ -69,7 +84,21 @@ fn update() void {
             v.*,
             ga.dual(ga.add(f, dcomm)),
         );
-        std.debug.print("{}\t{}\n", .{ c.*, v.* });
+        // collision resolution
+        for (walls) |w| {
+            std.debug.print("{}\t{}\n", .{
+                w,
+                ga.normalized(ga.apply(c.*, ga.Point.fromCart(0, 0))),
+            });
+            const d = ga.join(
+                w,
+                ga.normalized(ga.apply(c.*, ga.Point.fromCart(0, 0))),
+            ); // oriented distance to wall
+            if (d > r) {
+                continue;
+            }
+            std.debug.print("collision {} {} {}\n", .{ d, c.*, w });
+        }
     }
 }
 
@@ -79,6 +108,6 @@ pub fn main() void {
     while (true) {
         draw();
         update();
-        std.time.sleep(100_000_000);
+        std.time.sleep(dframe);
     }
 }

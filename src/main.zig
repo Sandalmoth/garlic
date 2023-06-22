@@ -197,14 +197,31 @@ pub const CL201 = struct {
 
     /// regressive product
     // TODO does it make sense to apply this to anything else?
-    pub fn join(a: Point, b: Point) Line {
-        // return dual(meet(dual(b), dual(a)));
-        var p = Line{
-            .e1 = a.e12 * b.e01 - a.e01 * b.e12,
-            .e2 = a.e20 * b.e12 - a.e12 * b.e20,
-            .e0 = a.e01 * b.e20 - a.e20 * b.e01,
-        };
-        return p;
+    fn joinReturnType(comptime Ta: type, comptime Tb: type) type {
+        if (Ta == Point and Tb == Point) {
+            return Line;
+        } else if ((Ta == Point and Tb == Line) or (Ta == Line and Tb == Point)) {
+            // oriented distance orthogonal to line
+            return f32;
+        }
+        @compileError("join not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
+    }
+    pub fn join(a: anytype, b: anytype) joinReturnType(@TypeOf(a), @TypeOf(b)) {
+        const Ta = @TypeOf(a);
+        const Tb = @TypeOf(b);
+        if (Ta == Point and Tb == Point) {
+            // return dual(meet(dual(b), dual(a)));
+            return Line{
+                .e1 = a.e12 * b.e01 - a.e01 * b.e12,
+                .e2 = a.e20 * b.e12 - a.e12 * b.e20,
+                .e0 = a.e01 * b.e20 - a.e20 * b.e01,
+            };
+        } else if (Ta == Point and Tb == Line) {
+            return a.e20 * b.e1 + a.e01 * b.e2 + a.e12 * b.e0;
+        } else if (Ta == Line and Tb == Point) {
+            return b.e20 * a.e1 + b.e01 * a.e2 + b.e12 * a.e0;
+        }
+        @compileError("join not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
     }
 
     /// projection of a onto b
