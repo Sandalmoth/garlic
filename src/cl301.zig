@@ -1,9 +1,14 @@
 // I wonder if we could compile-time generate some of this
 
+// if zig had distinct types with methods, this would be nicer
+// another option could be having "types" inheret to the methods
+// so e.g. instead of mul(anytype, anytype) we'd have mulmm(vec8, vec8)
+
 // NOTE layouts of the vectors is selected to make dual
 // - free for the plane/point cases
 // - simple for the line/motor cases
 // but we may want to reconsider details
+// maybe lines should be designed to make join/meet fast
 
 pub const Plane = struct {
     data: @Vector(4, f32),
@@ -122,3 +127,21 @@ pub const Motor = struct {
         ) };
     }
 };
+
+fn MulReturnType(a: anytype, b: anytype) type {
+    const Ta = @TypeOf(a);
+    const Tb = @TypeOf(b);
+    if (Ta == Motor and Tb == Motor) {
+        return Motor;
+    }
+    @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
+}
+/// geometric product
+pub fn mul(a: anytype, b: anytype) MulReturnType(@TypeOf(a), @TypeOf(b)) {
+    const Ta = @TypeOf(a);
+    const Tb = @TypeOf(b);
+    if (Ta == Motor and Tb == Motor) {
+        return Motor{};
+    }
+    @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
+}
