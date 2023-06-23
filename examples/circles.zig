@@ -114,9 +114,16 @@ fn update() void {
             std.debug.print("{}\n", .{v.*});
             // somehow calculate impulse
             // const j = -(1 + 0.5) * velocity_along_normal * r * r;
+            const v_along_n = ga.project(
+                ga.apply(ga.rev(c.*), v.*),
+                n,
+            );
+            std.debug.print("{}\n", .{v_along_n});
+            const speed_along_n = @sqrt(v_along_n.e20 * v_along_n.e20 + v_along_n.e01 * v_along_n.e01);
+            const j = -(1 + 0.5) * speed_along_n * r * r;
             v.* = ga.add(
                 v.*,
-                ga.mul(ga.dual(n), @as(f32, -100)),
+                ga.mul(ga.dual(n), @as(f32, j)),
             );
         }
     }
