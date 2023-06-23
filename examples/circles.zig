@@ -66,7 +66,88 @@ fn draw() void {
 
 fn update() void {
     for (&circles, &velocities, radii) |*c, *v, r| {
-        std.debug.print("{}\n", .{v.*});
+        // std.debug.print("{}\n", .{v.*});
+        // collision resolution
+        for (walls) |w| {
+            // std.debug.print("{}\t{}\n", .{
+            //     w,
+            //     ga.normalized(ga.apply(c.*, ga.point.fromcart(0, 0))),
+            // });
+            const d = ga.join(
+                w,
+                ga.normalized(ga.apply(c.*, ga.Point.fromCart(0, 0))),
+            ); // oriented distance to wall
+            if (d > r) {
+                continue;
+            }
+            // we are colliding with this wall
+            // std.debug.print("collision {} {} {}\n", .{ d, c.*, w });
+
+            // transform the wall into the body space
+            // and figure out the normal in body space
+            // note that the center of a circle,
+            // in the body space,
+            // is always at the origin
+            const n = ga.inner(
+                ga.apply(ga.rev(c.*), w),
+                ga.Point.fromCart(0, 0),
+            );
+            // std.debug.print("{}\n", .{n});
+            // std.debug.print("{}\n", .{v.*});
+            // somehow calculate impulse
+            // const j = -(1 + 0.5) * velocity_along_normal * r * r;
+            const v_along_n = ga.project(
+                ga.apply(ga.rev(c.*), v.*),
+                n,
+            );
+            // std.debug.print("{}\n", .{v_along_n});
+            const speed_along_n = @sqrt(v_along_n.e20 * v_along_n.e20 + v_along_n.e01 * v_along_n.e01);
+            var j = -(1 + 0.5) * speed_along_n;
+            j /= 1 / (r * r);
+            v.* = ga.add(
+                v.*,
+                ga.mul(ga.dual(n), @as(f32, j / (r * r))),
+            );
+        }
+        for (&circles, radii) |*c2, r2| {
+            // note
+            // we don't need to modify, but checking pointer
+            // equivalence is an easy test to see if it's the same
+            if (c == c2) {
+                continue;
+            }
+
+            const d = ga.norm(ga.join(
+                ga.normalized(ga.apply(c2.*, ga.Point.fromCart(0, 0))),
+                ga.normalized(ga.apply(c.*, ga.Point.fromCart(0, 0))),
+            )); // oriented distance to wall
+            if (d > r + r2) {
+                continue;
+            }
+            std.debug.print("{}\n", .{d});
+
+            // find the normal, same way as for wall
+            // though, in this case, we join the points
+            const n = ga.join(
+                ga.apply(ga.rev(c.*), ga.apply(c2.*, ga.Point.fromCart(0, 0))),
+                ga.Point.fromCart(0, 0),
+            );
+            std.debug.print("{}\n", .{n});
+
+            const v_along_n = ga.project(
+                ga.apply(ga.rev(c.*), v.*),
+                n,
+            );
+            // std.debug.print("{}\n", .{v_along_n});
+            const speed_along_n = @sqrt(v_along_n.e20 * v_along_n.e20 + v_along_n.e01 * v_along_n.e01);
+            var j = -(1 + 0.5) * speed_along_n;
+            j /= 1 / (r * r) + 1 / (r2 * r2);
+            v.* = ga.add(
+                v.*,
+                ga.mul(ga.dual(n), @as(f32, j / (r * r))),
+            );
+        }
+
         // basic state update (gravity + movement)
         const f = ga.dual(ga.apply(
             ga.rev(c.*),
@@ -85,47 +166,6 @@ fn update() void {
             v.*,
             ga.dual(ga.add(f, dcomm)),
         );
-        // collision resolution
-        for (walls) |w| {
-            std.debug.print("{}\t{}\n", .{
-                w,
-                ga.normalized(ga.apply(c.*, ga.Point.fromCart(0, 0))),
-            });
-            const d = ga.join(
-                w,
-                ga.normalized(ga.apply(c.*, ga.Point.fromCart(0, 0))),
-            ); // oriented distance to wall
-            if (d > r) {
-                continue;
-            }
-            // we are colliding with this wall
-            std.debug.print("collision {} {} {}\n", .{ d, c.*, w });
-
-            // transform the wall into the body space
-            // and figure out the normal in body space
-            // note that the center of a circle,
-            // in the body space,
-            // is always at the origin
-            const n = ga.inner(
-                ga.apply(ga.rev(c.*), w),
-                ga.Point.fromCart(0, 0),
-            );
-            std.debug.print("{}\n", .{n});
-            std.debug.print("{}\n", .{v.*});
-            // somehow calculate impulse
-            // const j = -(1 + 0.5) * velocity_along_normal * r * r;
-            const v_along_n = ga.project(
-                ga.apply(ga.rev(c.*), v.*),
-                n,
-            );
-            std.debug.print("{}\n", .{v_along_n});
-            const speed_along_n = @sqrt(v_along_n.e20 * v_along_n.e20 + v_along_n.e01 * v_along_n.e01);
-            const j = -(1 + 0.5) * speed_along_n * r * r;
-            v.* = ga.add(
-                v.*,
-                ga.mul(ga.dual(n), @as(f32, j)),
-            );
-        }
     }
 }
 
