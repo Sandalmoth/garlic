@@ -109,7 +109,7 @@ fn update() void {
                 ga.mul(ga.dual(n), @as(f32, j / (r * r))),
             );
         }
-        for (&circles, radii) |*c2, r2| {
+        for (&circles, velocities, radii) |*c2, v2, r2| {
             // note
             // we don't need to modify, but checking pointer
             // equivalence is an easy test to see if it's the same
@@ -135,7 +135,7 @@ fn update() void {
             std.debug.print("{}\n", .{n});
 
             const v_along_n = ga.project(
-                ga.apply(ga.rev(c.*), v.*),
+                ga.apply(ga.rev(c.*), ga.add(v.*, v2)),
                 n,
             );
             // std.debug.print("{}\n", .{v_along_n});

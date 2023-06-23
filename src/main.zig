@@ -1,6 +1,8 @@
 const std = @import("std");
 const testing = std.testing;
 
+pub const CL301 = @import("cl301.zig");
+
 // notes
 // motor * point * rev(motor)
 // (a + be01 + ce20 + de12)(xe20 + ye01 + ze12)
