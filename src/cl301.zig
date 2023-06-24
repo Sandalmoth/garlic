@@ -1,3 +1,5 @@
+const std = @import("std");
+
 // I wonder if we could compile-time generate some of this
 
 // if zig had distinct types with methods, this would be nicer
@@ -85,6 +87,10 @@ pub const Point = struct {
         return point.data[3];
     }
 
+    pub fn new(_e123: f32, _e032: f32, _e013: f32, _e021: f32) Point {
+        return Point{ .data = @Vector(4, f32){ _e123, _e032, _e013, _e021 } };
+    }
+
     pub fn dual(point: Point) Plane {
         return Plane{ .data = point.data };
     }
@@ -144,4 +150,19 @@ pub fn mul(a: anytype, b: anytype) MulReturnType(@TypeOf(a), @TypeOf(b)) {
         return Motor{};
     }
     @compileError("mul not supported for types " ++ @typeName(Ta) ++ " and " ++ @typeName(Tb));
+}
+
+test "dual" {
+    const p = Point.new(1, 2, 3, 4);
+    const l = p.dual();
+    const p2 = l.dual();
+
+    try std.testing.expectEqual(p.e123(), l.e0());
+    try std.testing.expectEqual(p.e032(), l.e1());
+    try std.testing.expectEqual(p.e013(), l.e2());
+    try std.testing.expectEqual(p.e021(), l.e3());
+    try std.testing.expectEqual(p2.e123(), l.e0());
+    try std.testing.expectEqual(p2.e032(), l.e1());
+    try std.testing.expectEqual(p2.e013(), l.e2());
+    try std.testing.expectEqual(p2.e021(), l.e3());
 }
