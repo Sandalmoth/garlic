@@ -3,6 +3,13 @@ const std = @import("std");
 // for the sake of interoperability, same definition as in zmath
 pub const F32x4 = @Vector(4, f32);
 
+pub inline fn f32x4(e0: f32, e1: f32, e2: f32, e3: f32) F32x4 {
+    return .{ e0, e1, e2, e3 };
+}
+pub inline fn f32x4s(e0: f32) F32x4 {
+    return @splat(4, e0);
+}
+
 // there's gonna be two types of vector
 // A - np.array([ e1,  e2,  e0, e012]) - lines (and flectors)
 // B - np.array([e20, e01, e12,    1]) - points and motors
@@ -43,7 +50,7 @@ pub const init = struct {
 
 pub fn normP(p: Point) Point {
     std.debug.assert(p[3] == 0);
-    return p / p[2];
+    return p / @splat(4, p[2]);
 }
 
 /// outer product
@@ -130,20 +137,55 @@ pub fn commLP(l: Line, p: Point) Line {
 
 /// geometric product of two type B vectors
 pub fn mulBB(b0: F32x4, b1: F32x4) F32x4 {
-    // TODO test optimization
+    // TODO test optimization, is it actually faster?
     const A = @shuffle(f32, b0, undefined, @Vector(4, i32){ 2, 3, 2, 3 });
     const B = @shuffle(f32, b1, undefined, @Vector(4, i32){ 3, 2, 2, 3 });
     const AB = A * B;
     const C = @shuffle(f32, b0, undefined, @Vector(4, i32){ 2, 3, 0, 1 });
     const D = @shuffle(f32, b0, undefined, @Vector(4, i32){ 3, 2, 1, 0 });
+    const n0 = @Vector(4, f32){ 1, 1, -1, 1 };
+    const n1 = @Vector(4, f32){ -1, 1, 1, 1 };
     return .{
-        AB[3] - AB[2],
-        D * b1 * @Vector(4, f32){ 1, 1, -1, 1 },
-        C * b1 * @Vector(4, f32){ -1, 1, 1, 1 },
+        @reduce(.Add, D * b1 * n0),
+        @reduce(.Add, C * b1 * n1),
         AB[0] + AB[1],
+        AB[3] - AB[2],
     };
 }
 /// compose two motors m0, m1 to a new one performing first m1 then m0
 pub inline fn mulMM(m0: Motor, m1: Motor) Motor {
     return mulBB(m0, m1);
+}
+
+test "motors" {
+    const p: Point = .{ 1, 1, 1, 0 };
+    const mr = init.rotCCW(0.5 * std.math.pi);
+    const mt = init.trans(2, 2);
+
+    // std.debug.print("\n", .{});
+    // std.debug.print("{}\n", .{normP(applyMP(mr, p))});
+    // std.debug.print("{}\n", .{normP(applyMP(mt, p))});
+    // std.debug.print("{}\n", .{normP(applyMP(mulMM(mr, mt), p))});
+    // std.debug.print("{}\n", .{normP(applyMP(mulMM(mt, mr), p))});
+
+    const mr_p = normP(applyMP(mr, p));
+    const mt_p = normP(applyMP(mt, p));
+    const mtr_p = normP(applyMP(mulMM(mr, mt), p));
+    const mrt_p = normP(applyMP(mulMM(mt, mr), p));
+
+    try std.testing.expect(approxEqAbs(mr_p, f32x4(-1, 1, 1, 0), 1e-3));
+    try std.testing.expect(approxEqAbs(mt_p, f32x4(3, 3, 1, 0), 1e-3));
+    try std.testing.expect(approxEqAbs(mtr_p, f32x4(-3, 3, 1, 0), 1e-3));
+    try std.testing.expect(approxEqAbs(mrt_p, f32x4(1, 3, 1, 0), 1e-3));
+}
+
+// adapted from zmath, useful in testing
+fn approxEqAbs(v0: F32x4, v1: F32x4, eps: f32) bool {
+    comptime var i: comptime_int = 0;
+    inline while (i < 4) : (i += 1) {
+        if (!std.math.approxEqAbs(f32, v0[i], v1[i], eps)) {
+            return false;
+        }
+    }
+    return true;
 }
