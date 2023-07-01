@@ -119,8 +119,8 @@ pub fn applyML(m: Motor, l: Line) Line {
     const c = l[2];
     const A = s * a + w * b;
     const B = s * b - w * a;
-    const C = s * c - u * a + v * b;
-    const D = w * c + u * b + v * a;
+    const C = s * c - u * b + v * a;
+    const D = w * c + v * b + u * a;
     return .{
         s * A + w * B,
         s * B - w * A,
@@ -181,25 +181,39 @@ test "motors" {
     const mt_p = normP(applyMP(mt, p));
     const mtr_p = normP(applyMP(mulMM(mr, mt), p));
     const mrt_p = normP(applyMP(mulMM(mt, mr), p));
+    const mt_mr_p = normP(applyMP(mr, applyMP(mt, p)));
+    const mr_mt_p = normP(applyMP(mt, applyMP(mr, p)));
 
     try std.testing.expect(approxEqAbs(mr_p, f32x4(-1, 1, 1, 0), 1e-3));
     try std.testing.expect(approxEqAbs(mt_p, f32x4(3, 3, 1, 0), 1e-3));
     try std.testing.expect(approxEqAbs(mtr_p, f32x4(-3, 3, 1, 0), 1e-3));
     try std.testing.expect(approxEqAbs(mrt_p, f32x4(1, 3, 1, 0), 1e-3));
+    try std.testing.expect(approxEqAbs(mrt_p, mr_mt_p, 1e-3));
+    try std.testing.expect(approxEqAbs(mtr_p, mt_mr_p, 1e-3));
 
     const l: Line = .{ 1, -1, -1, 0 };
 
-    std.debug.print("\n", .{});
-    std.debug.print("{}\n", .{applyML(mr, l)});
-    std.debug.print("{}\n", .{applyML(mt, l)});
-    std.debug.print("{}\n", .{applyML(mulMM(mr, mt), l)});
-    std.debug.print("{}\n", .{applyML(mulMM(mt, mr), l)});
-    std.debug.print("{}\n", .{applyML(mr, applyML(mt, l))});
-    std.debug.print("{}\n", .{applyML(mt, applyML(mr, l))});
-    // std.debug.print("{}\n", .{normL(applyML(mr, l))});
-    // std.debug.print("{}\n", .{normL(applyML(mt, l))});
-    // std.debug.print("{}\n", .{normL(applyML(mulMM(mr, mt), l))});
-    // std.debug.print("{}\n", .{normL(applyML(mulMM(mt, mr), l))});
+    // std.debug.print("\n", .{});
+    // std.debug.print("{}\n", .{applyML(mr, l)});
+    // std.debug.print("{}\n", .{applyML(mt, l)});
+    // std.debug.print("{}\n", .{applyML(mulMM(mr, mt), l)});
+    // std.debug.print("{}\n", .{applyML(mulMM(mt, mr), l)});
+    // std.debug.print("{}\n", .{applyML(mr, applyML(mt, l))});
+    // std.debug.print("{}\n", .{applyML(mt, applyML(mr, l))});
+
+    const mr_l = applyML(mr, l);
+    const mt_l = applyML(mt, l);
+    const mtr_l = applyML(mulMM(mr, mt), l);
+    const mrt_l = applyML(mulMM(mt, mr), l);
+    const mt_mr_l = applyML(mr, applyML(mt, l));
+    const mr_mt_l = applyML(mt, applyML(mr, l));
+
+    try std.testing.expect(approxEqAbs(mr_l, f32x4(1, 1, -1, 0), 1e-3));
+    try std.testing.expect(approxEqAbs(mt_l, f32x4(1, -1, -1, 0), 1e-3));
+    try std.testing.expect(approxEqAbs(mtr_l, f32x4(1, 1, -1, 0), 1e-3));
+    try std.testing.expect(approxEqAbs(mrt_l, f32x4(1, 1, -5, 0), 1e-3));
+    try std.testing.expect(approxEqAbs(mrt_l, mr_mt_l, 1e-3));
+    try std.testing.expect(approxEqAbs(mtr_l, mt_mr_l, 1e-3));
 }
 
 // adapted from zmath, used in tests
