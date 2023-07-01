@@ -53,6 +53,13 @@ pub fn normP(p: Point) Point {
     return p / @splat(4, p[2]);
 }
 
+pub fn normL(l: Line) Line {
+    std.debug.assert(l[3] == 0);
+    const l2 = l * l;
+    const inorm = 1 / @sqrt(l2[0] + l2[1]);
+    return @splat(4, inorm) * l;
+}
+
 /// outer product
 /// find the intersection of two lines
 pub fn meetLL(l0: Line, l1: Line) Point {
@@ -117,7 +124,7 @@ pub fn applyML(m: Motor, l: Line) Line {
     return .{
         s * A + w * B,
         s * B - w * A,
-        s * C + w * D + u * A - v * B,
+        s * C + w * D + v * A - u * B,
         0,
     };
 }
@@ -167,6 +174,8 @@ test "motors" {
     // std.debug.print("{}\n", .{normP(applyMP(mt, p))});
     // std.debug.print("{}\n", .{normP(applyMP(mulMM(mr, mt), p))});
     // std.debug.print("{}\n", .{normP(applyMP(mulMM(mt, mr), p))});
+    // std.debug.print("{}\n", .{normP(applyMP(mr, applyMP(mt, p)))});
+    // std.debug.print("{}\n", .{normP(applyMP(mt, applyMP(mr, p)))});
 
     const mr_p = normP(applyMP(mr, p));
     const mt_p = normP(applyMP(mt, p));
@@ -177,9 +186,23 @@ test "motors" {
     try std.testing.expect(approxEqAbs(mt_p, f32x4(3, 3, 1, 0), 1e-3));
     try std.testing.expect(approxEqAbs(mtr_p, f32x4(-3, 3, 1, 0), 1e-3));
     try std.testing.expect(approxEqAbs(mrt_p, f32x4(1, 3, 1, 0), 1e-3));
+
+    const l: Line = .{ 1, -1, -1, 0 };
+
+    std.debug.print("\n", .{});
+    std.debug.print("{}\n", .{applyML(mr, l)});
+    std.debug.print("{}\n", .{applyML(mt, l)});
+    std.debug.print("{}\n", .{applyML(mulMM(mr, mt), l)});
+    std.debug.print("{}\n", .{applyML(mulMM(mt, mr), l)});
+    std.debug.print("{}\n", .{applyML(mr, applyML(mt, l))});
+    std.debug.print("{}\n", .{applyML(mt, applyML(mr, l))});
+    // std.debug.print("{}\n", .{normL(applyML(mr, l))});
+    // std.debug.print("{}\n", .{normL(applyML(mt, l))});
+    // std.debug.print("{}\n", .{normL(applyML(mulMM(mr, mt), l))});
+    // std.debug.print("{}\n", .{normL(applyML(mulMM(mt, mr), l))});
 }
 
-// adapted from zmath, useful in testing
+// adapted from zmath, used in tests
 fn approxEqAbs(v0: F32x4, v1: F32x4, eps: f32) bool {
     comptime var i: comptime_int = 0;
     inline while (i < 4) : (i += 1) {
