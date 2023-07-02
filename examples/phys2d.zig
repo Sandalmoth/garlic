@@ -26,7 +26,7 @@ const Circle = struct {
     radius: f32,
 };
 const Square = struct {
-    half_length: f32,
+    half_width: f32,
 };
 const ShapeTag = enum {
     circle,
@@ -53,6 +53,15 @@ fn setup() void {
         .transform = .{ 0, 0, 0, 1 },
         .motion = .{ 0, 0, 0, 0 },
         .shape = Shape{ .circle = .{ .radius = 1.0 } },
+        .imass = 1.0,
+        .restitution = 0.5,
+        .friction = 0.5,
+    }) catch unreachable;
+
+    bodies.append(.{
+        .transform = ga.initM.trans(0.3, 3),
+        .motion = .{ 0, 0, 0, 0 },
+        .shape = Shape{ .square = .{ .half_width = 1.2 } },
         .imass = 1.0,
         .restitution = 0.5,
         .friction = 0.5,
@@ -95,8 +104,9 @@ fn drawLine(a: ga.Point, b: ga.Point) void {
     }
 }
 
+/// draw a circle at the point indicated by transforming the origin, with given radius
 fn drawCircle(transform: ga.Motor, radius: f32) void {
-    const segments = 9;
+    const segments = 31;
     const center = ga.Point{ 0, 0, 1, 0 };
     const rim = ga.Point{ radius, 0, 1, 0 };
     drawLine(
@@ -114,12 +124,31 @@ fn drawCircle(transform: ga.Motor, radius: f32) void {
     }
 }
 
+/// draw a square at the point indicated by transforming the origin, with given radius
+fn drawSquare(transform: ga.Motor, half_width: f32) void {
+    const ne = ga.applyMP(transform, ga.Point{ half_width, half_width, 1, 0 });
+    const nw = ga.applyMP(transform, ga.Point{ -half_width, half_width, 1, 0 });
+    const se = ga.applyMP(transform, ga.Point{ half_width, -half_width, 1, 0 });
+    const sw = ga.applyMP(transform, ga.Point{ -half_width, -half_width, 1, 0 });
+    drawLine(ne, nw);
+    drawLine(nw, sw);
+    drawLine(sw, se);
+    drawLine(se, ne);
+}
+
 fn draw() void {
     renderbuffer = [_]u8{' '} ** (grid_height * grid_width);
 
     // drawLine(.{ -6, -6, 1, 0 }, .{ 6, 6, 1, 0 });
     // drawLine(.{ -4, 4, 1, 0 }, .{ 4, -4, 1, 0 });
-    drawCircle(.{ 0, 0, 0, 1 }, 3); // identity motor
+    // drawCircle(.{ 0, 0, 0, 1 }, 3); // identity motor
+
+    for (bodies.items) |body| {
+        switch (body.shape) {
+            .circle => |circle| drawCircle(body.transform, circle.radius),
+            .square => |square| drawSquare(body.transform, square.half_width),
+        }
+    }
 
     std.debug.print("\x1B[2J\x1B[H", .{});
     {
