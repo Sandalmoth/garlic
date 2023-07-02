@@ -27,7 +27,7 @@ pub const Motor = F32x4;
 // functions that work on type A or type B vectors are annotated similarly
 
 // namespace the initialization functions
-pub const init = struct {
+pub const initM = struct {
     /// create a motor for the translation dx, dy
     pub inline fn trans(dx: f32, dy: f32) Motor {
         return .{ 0.5 * dy, -0.5 * dx, 0.0, 1.0 };
@@ -58,6 +58,18 @@ pub fn normL(l: Line) Line {
     const l2 = l * l;
     const inorm = 1 / @sqrt(l2[0] + l2[1]);
     return @splat(4, inorm) * l;
+}
+
+pub inline fn revA(a: F32x4) F32x4 {
+    return f32x4(1, 1, 1, -1) * a;
+}
+
+pub inline fn revB(b: F32x4) F32x4 {
+    return f32x4(-1, -1, -1, 1) * b;
+}
+
+pub inline fn revM(m: Motor) Motor {
+    return revB(m);
 }
 
 /// outer product
@@ -166,8 +178,8 @@ pub inline fn mulMM(m0: Motor, m1: Motor) Motor {
 
 test "motors" {
     const p: Point = .{ 1, 1, 1, 0 };
-    const mr = init.rotCCW(0.5 * std.math.pi);
-    const mt = init.trans(2, 2);
+    const mr = initM.rotCCW(0.5 * std.math.pi);
+    const mt = initM.trans(2, 2);
 
     // std.debug.print("\n", .{});
     // std.debug.print("{}\n", .{normP(applyMP(mr, p))});

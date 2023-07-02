@@ -33,4 +33,15 @@ pub fn build(b: *std.Build) void {
     const run_circles = b.addRunArtifact(exe_circles);
     const circles_step = b.step("example-circles", "run circle physics example");
     circles_step.dependOn(&run_circles.step);
+
+    const exe_phys2d = b.addExecutable(.{
+        .name = "circle-test",
+        .root_source_file = .{ .path = "examples/phys2d.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    exe_phys2d.addAnonymousModule("garlic", .{ .source_file = .{ .path = "./src/cl201.zig" } });
+    const run_phys2d = b.addRunArtifact(exe_phys2d);
+    const phys2d_step = b.step("example-phys2d", "run physics example");
+    phys2d_step.dependOn(&run_phys2d.step);
 }
