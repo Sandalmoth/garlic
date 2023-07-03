@@ -66,6 +66,30 @@ fn setup() void {
         .restitution = 0.5,
         .friction = 0.5,
     }) catch unreachable;
+
+    // floor from infinite-mass cubes
+    bodies.append(.{
+        .transform = ga.mulMM(
+            ga.initM.trans(-6, -10),
+            ga.initM.rotCW(0.2),
+        ),
+        .motion = .{ 0, 0, 0, 0 },
+        .shape = Shape{ .square = .{ .half_width = 6 } },
+        .imass = 0.0,
+        .restitution = 0.5,
+        .friction = 0.5,
+    }) catch unreachable;
+    bodies.append(.{
+        .transform = ga.mulMM(
+            ga.initM.trans(6, -10),
+            ga.initM.rotCCW(0.2),
+        ),
+        .motion = .{ 0, 0, 0, 0 },
+        .shape = Shape{ .square = .{ .half_width = 6 } },
+        .imass = 0.0,
+        .restitution = 0.5,
+        .friction = 0.5,
+    }) catch unreachable;
 }
 
 // 0.5 * dual(a) x a = 0.5 * (dual(a)*a - a*dual(a))
@@ -86,8 +110,13 @@ fn gravity(transform: ga.Motor) ga.F32x4 {
 
 fn step() void {
     for (bodies.items) |*body| {
-        std.debug.print("{}\t{}\n", .{ body.transform, body.motion });
-        body.motion += ga.f32x4s(tick) * (gravity(body.transform) - dcomm(body.motion));
+        if (body.imass > 0) {
+            // TODO is this correct use of mass?
+            // seems odd that mass is applied to the commutator product, but not gravity
+            body.motion += ga.f32x4s(tick * body.imass) * (gravity(body.transform) - dcomm(body.motion) * ga.f32x4s(1.0 / body.imass));
+        } else {
+            body.motion -= ga.f32x4s(tick) * dcomm(body.motion);
+        }
         body.transform -= ga.f32x4s(0.5 * tick) * ga.mulBB(body.transform, body.motion);
     }
 
