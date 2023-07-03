@@ -60,6 +60,11 @@ pub fn normL(l: Line) Line {
     return @splat(4, inorm) * l;
 }
 
+pub fn normM(m: Motor) Motor {
+    const inorm = 1 / @sqrt(m[2] * m[2] + m[3] * m[3]);
+    return @splat(4, inorm) * m;
+}
+
 pub inline fn revA(a: F32x4) F32x4 {
     return f32x4(1, 1, 1, -1) * a;
 }

@@ -11,7 +11,7 @@ const tick_ns = @floatToInt(u64, tick * 1e9);
 const max_tick_ns = @floatToInt(u64, 0.1 * 1e9);
 
 // for rendering to the terminal
-const frame_delay_ns: u64 = 300_000_000;
+const frame_delay_ns: u64 = 30_000_000;
 const grid_height = 50;
 const grid_width = 100;
 const grid_aspect = 0.5; // height of terminal character / width of terminal character
@@ -51,7 +51,7 @@ var bodies: std.ArrayList(Body) = undefined;
 fn setup() void {
     bodies.append(.{
         .transform = .{ 0, 0, 0, 1 },
-        .motion = .{ 0, 0, 0, 0 },
+        .motion = .{ 0, 0, -5, 0 },
         .shape = Shape{ .circle = .{ .radius = 1.0 } },
         .imass = 1.0,
         .restitution = 0.5,
@@ -60,7 +60,7 @@ fn setup() void {
 
     bodies.append(.{
         .transform = ga.initM.trans(0.3, 3),
-        .motion = .{ 0, 0, 0, 0 },
+        .motion = .{ 0, 0, 1, 0 },
         .shape = Shape{ .square = .{ .half_width = 1.2 } },
         .imass = 1.0,
         .restitution = 0.5,
@@ -68,7 +68,35 @@ fn setup() void {
     }) catch unreachable;
 }
 
-fn step() void {}
+// 0.5 * dual(a) x a = 0.5 * (dual(a)*a - a*dual(a))
+// solved by for the case when a is an (e20, e01, e12) vector (i.e. point)
+fn dcomm(a: ga.F32x4) ga.F32x4 {
+    return .{
+        -a[1] * a[2],
+        a[0] * a[2],
+        0,
+        0,
+    };
+}
+
+fn gravity(transform: ga.Motor) ga.F32x4 {
+    // why the motion representation rotated 90 degrees?
+    return ga.applyMP(ga.revM(transform), ga.f32x4(10, 0, 0, 0));
+}
+
+fn step() void {
+    for (bodies.items) |*body| {
+        std.debug.print("{}\t{}\n", .{ body.transform, body.motion });
+        body.motion += ga.f32x4s(tick) * (gravity(body.transform) - dcomm(body.motion));
+        body.transform -= ga.f32x4s(0.5 * tick) * ga.mulBB(body.transform, body.motion);
+    }
+
+    // collide stuff here
+
+    for (bodies.items) |*body| {
+        body.transform = ga.normM(body.transform);
+    }
+}
 
 /// draw a line from point a to point b
 fn drawLine(a: ga.Point, b: ga.Point) void {
@@ -106,7 +134,7 @@ fn drawLine(a: ga.Point, b: ga.Point) void {
 
 /// draw a circle at the point indicated by transforming the origin, with given radius
 fn drawCircle(transform: ga.Motor, radius: f32) void {
-    const segments = 31;
+    const segments = 11;
     const center = ga.Point{ 0, 0, 1, 0 };
     const rim = ga.Point{ radius, 0, 1, 0 };
     drawLine(
@@ -114,7 +142,6 @@ fn drawCircle(transform: ga.Motor, radius: f32) void {
         ga.applyMP(transform, rim),
     );
     for (0..segments + 1) |_i| {
-        std.debug.print("{}\n", .{_i});
         const i = 2 * std.math.pi * @intToFloat(f32, _i % segments) / segments;
         const j = 2 * std.math.pi * @intToFloat(f32, (_i + 1) % segments) / segments;
         drawLine(
